@@ -1,3 +1,4 @@
+// config/env.js
 const dotenv = require("dotenv");
 const path = require("path");
 
@@ -8,11 +9,16 @@ const env = {
   PORT: parseInt(process.env.PORT, 10) || 5000,
   NODE_ENV: process.env.NODE_ENV || "development",
 
+  // URLs
+  CLIENT_URL: process.env.CLIENT_URL || "http://localhost:3000",
+  ADMIN_URL: process.env.ADMIN_URL || "http://localhost:3001",
+  SERVER_URL: process.env.SERVER_URL || "http://localhost:5000",
+
   // MongoDB
   MONGO_URI: process.env.MONGO_URI || "mongodb://127.0.0.1:27017/smartpos",
 
   // JWT
-  JWT_SECRET: process.env.JWT_SECRET || "change_me_in_production",
+  JWT_SECRET: process.env.JWT_SECRET || "smartpos_dev_secret",
   JWT_EXPIRE: process.env.JWT_EXPIRE || "7d",
 
   // CORS
@@ -21,8 +27,7 @@ const env = {
     : ["http://localhost:3000", "http://localhost:3001"],
 
   // AI
-  HDM_AI_BASE_URL:
-    process.env.HDM_AI_BASE_URL || "https://hdmai-server.onrender.com/api/v1",
+  HDM_AI_BASE_URL: process.env.HDM_AI_BASE_URL || "https://hdmai-server.onrender.com/api/v1",
   HDM_AI_API_KEY: process.env.HDM_AI_API_KEY || "",
 
   // Stripe
@@ -43,6 +48,7 @@ const env = {
 
   // Brevo
   BREVO_API_KEY: process.env.BREVO_API_KEY || "",
+  BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL || "noreply@smartpos.com",
 
   // Cloudinary
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
@@ -53,10 +59,10 @@ const env = {
 // Validate critical variables in production
 if (env.NODE_ENV === "production") {
   const required = ["MONGO_URI", "JWT_SECRET"];
-  const missing = required.filter((key) => !env[key] || env[key].includes("change_me"));
+  const missing = required.filter((key) => !env[key] || env[key].includes("dev_secret") || env[key].includes("127.0.0.1"));
 
   if (missing.length > 0) {
-    console.error(`❌ Missing required environment variables: ${missing.join(", ")}`);
+    console.error(`❌ Missing or insecure environment variables: ${missing.join(", ")}`);
     process.exit(1);
   }
 }

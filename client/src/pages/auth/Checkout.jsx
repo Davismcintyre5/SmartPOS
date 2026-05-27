@@ -1,4 +1,4 @@
-// Checkout
+// pages/auth/Checkout.jsx — fix finalizeRegistration
 import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
@@ -8,6 +8,7 @@ import { landingApi } from "../../api/landingApi";
 import { authApi } from "../../api/authApi";
 import { formatPrice } from "../../utils/formatCurrency";
 import { ArrowLeft, Smartphone, Building, CreditCard, Copy, ShieldAlert, Clock, Check } from "lucide-react";
+import toast from "react-hot-toast";
 
 export const Checkout = () => {
   const [searchParams] = useSearchParams();
@@ -28,6 +29,7 @@ export const Checkout = () => {
   useEffect(() => {
     const raw = sessionStorage.getItem("smartpos_registration");
     if (raw) setRegData(JSON.parse(raw));
+
     Promise.all([landingApi.getPlans(), landingApi.getPaymentMethods()])
       .then(([plansRes, methodsRes]) => {
         if (plansRes.success) setPlansData(plansRes.plans);
@@ -46,25 +48,83 @@ export const Checkout = () => {
   const finalizeRegistration = async (method) => {
     setSubmitting(true);
     setError("");
+
+    // Step 1: Create client + user (inactive)
     const regRes = await authApi.registerPending({
-      businessName: regData.businessName, ownerName: regData.ownerName, email: regData.email,
-      phone: regData.phone, password: regData.password, currency: "KES", plan: planParam,
+      businessName: regData.businessName,
+      ownerName: regData.ownerName,
+      email: regData.email,
+      phone: regData.phone,
+      password: regData.password,
+      currency: "KES",
+      plan: planParam,
     });
-    if (!regRes.success) { setError(regRes.message || "Registration failed."); setSubmitting(false); return; }
+
+    if (!regRes.success) {
+      setError(regRes.message || "Registration failed. Please try again.");
+      setSubmitting(false);
+      return;
+    }
+
     const clientId = regRes.clientId || regRes.client?._id || regRes.client?.id;
-    try { await landingApi.initiatePayment({ clientId, amount: amountKES, currency: "KES", method, billingCycle: planParam, ...(mpesaPhone && { phone: mpesaPhone }) }); } catch {}
+
+    if (!clientId) {
+      setError("Could not create account. Please try again.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Step 2: Create payment record
+    try {
+      const payRes = await landingApi.initiatePayment({
+        clientId,
+        amount: amountKES,
+        currency: "KES",
+        method: method === "mpesa_stk" ? "mpesa" : "mpesa",
+        billingCycle: planParam,
+        ...(mpesaPhone && { phone: mpesaPhone }),
+      });
+
+      if (!payRes.success) {
+        setError(payRes.message || "Payment initiation failed. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+    } catch (payErr) {
+      console.error("Payment error:", payErr);
+      setError("Payment service unavailable. Your registration was saved. Please contact support.");
+      setSubmitting(false);
+      return;
+    }
+
     sessionStorage.removeItem("smartpos_registration");
     setSuccess(true);
     setSubmitting(false);
+  };
+
+  const handleSTKPush = () => {
+    if (!mpesaPhone || mpesaPhone.length < 10) {
+      setError("Enter a valid M-Pesa phone number.");
+      return;
+    }
+    finalizeRegistration("mpesa_stk");
+  };
+
+  const handleManualConfirm = () => {
+    setShowConfirm(false);
+    finalizeRegistration(selectedMethod);
   };
 
   const getMpesaDetails = () => {
     if (!paymentMethods?.mpesaMethods) return null;
     const m = paymentMethods.mpesaMethods;
     switch (selectedMethod) {
-      case "mpesa_send": return { label: "Send Money", number: m.sendMoneyPhoneNumber, steps: ["Go to M-Pesa menu", "Select Send Money", `Enter number: ${m.sendMoneyPhoneNumber}`, `Enter amount: ${formatPrice(amountKES, "KES")}`, "Enter your PIN", "Confirm and send"] };
-      case "mpesa_till": return { label: "Till Number", number: m.tillNumber, steps: ["Go to M-Pesa menu", "Select Buy Goods and Services", `Enter Till Number: ${m.tillNumber}`, `Enter amount: ${formatPrice(amountKES, "KES")}`, "Enter your PIN", "Confirm payment"] };
-      case "mpesa_paybill": return { label: "Paybill", number: `${m.paybillBusinessNumber} (${m.paybillAccountName})`, steps: ["Go to M-Pesa menu", "Select Paybill", `Enter Business Number: ${m.paybillBusinessNumber}`, `Enter Account: ${m.paybillAccountName || "SmartPOS"}`, `Enter amount: ${formatPrice(amountKES, "KES")}`, "Enter your PIN", "Confirm payment"] };
+      case "mpesa_send":
+        return { label: "Send Money", number: m.sendMoneyPhoneNumber, steps: ["Go to M-Pesa menu", "Select Send Money", `Enter number: ${m.sendMoneyPhoneNumber}`, `Enter amount: ${formatPrice(amountKES, "KES")}`, "Enter your PIN", "Confirm and send"] };
+      case "mpesa_till":
+        return { label: "Till Number", number: m.tillNumber, steps: ["Go to M-Pesa menu", "Select Buy Goods and Services", `Enter Till Number: ${m.tillNumber}`, `Enter amount: ${formatPrice(amountKES, "KES")}`, "Enter your PIN", "Confirm payment"] };
+      case "mpesa_paybill":
+        return { label: "Paybill", number: `${m.paybillBusinessNumber} (${m.paybillAccountName})`, steps: ["Go to M-Pesa menu", "Select Paybill", `Enter Business Number: ${m.paybillBusinessNumber}`, `Enter Account: ${m.paybillAccountName || "SmartPOS"}`, `Enter amount: ${formatPrice(amountKES, "KES")}`, "Enter your PIN", "Confirm payment"] };
       default: return null;
     }
   };
@@ -93,7 +153,9 @@ export const Checkout = () => {
           <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-5"><Check className="w-8 h-8 text-green-600" /></div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Payment Submitted!</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Your payment is pending admin approval. You'll receive your license key via email once approved.</p>
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-6"><p className="text-xs text-yellow-700 dark:text-yellow-400">Approvals typically take a few minutes during business hours.</p></div>
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-6">
+            <p className="text-xs text-yellow-700 dark:text-yellow-400">Approvals typically take a few minutes during business hours.</p>
+          </div>
           <Button className="w-full" onClick={() => navigate("/login")}>Go to Login</Button>
         </div>
       </div>
@@ -135,7 +197,7 @@ export const Checkout = () => {
               <h3 className="font-semibold text-gray-900 dark:text-white mb-4">M-Pesa STK Push</h3>
               <Input label="M-Pesa Phone Number" value={mpesaPhone} onChange={(e) => setMpesaPhone(e.target.value)} placeholder="0712345678" />
               {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
-              <Button size="lg" className="w-full mt-4" onClick={() => finalizeRegistration("mpesa")} loading={submitting}>Pay {formatPrice(amountKES, "KES")} via STK Push</Button>
+              <Button size="lg" className="w-full mt-4" onClick={handleSTKPush} loading={submitting}>Pay {formatPrice(amountKES, "KES")} via STK Push</Button>
             </div>
           )}
 
@@ -178,7 +240,7 @@ export const Checkout = () => {
             <p className="text-xs text-red-600 dark:text-red-400 mb-4">⚠️ False submissions will be auto-rejected after 3 hours. Only confirm if you have received your M-Pesa confirmation SMS.</p>
             <div className="flex gap-3">
               <Button variant="ghost" className="flex-1" onClick={() => setShowConfirm(false)}>Cancel</Button>
-              <Button variant="danger" className="flex-1" onClick={() => { setShowConfirm(false); finalizeRegistration(selectedMethod); }}>Confirm Payment</Button>
+              <Button variant="danger" className="flex-1" onClick={handleManualConfirm}>Confirm Payment</Button>
             </div>
           </div>
         </div>
