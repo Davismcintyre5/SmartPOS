@@ -1,8 +1,7 @@
 // context/AuthContext.jsx
-import { createContext, useState, useEffect, useCallback } from "react";
+import { createContext, useState, useCallback, useLayoutEffect } from "react";
 import { authApi } from "../api/authApi";
 import { currencyApi } from "../api/currencyApi";
-import { storage } from "../utils/storage";
 
 export const AuthContext = createContext();
 
@@ -12,13 +11,14 @@ export const AuthProvider = ({ children }) => {
   const [clientId, setClientId] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const savedToken = storage.get("smartpos_token");
-    const savedUser = storage.get("smartpos_user");
-    const savedClientId = storage.get("smartpos_clientId");
+  useLayoutEffect(() => {
+    const savedToken = localStorage.getItem("smartpos_token");
+    const savedUser = localStorage.getItem("smartpos_user");
+    const savedClientId = localStorage.getItem("smartpos_clientId");
+
     if (savedToken && savedUser) {
       setToken(savedToken);
-      setUser(savedUser);
+      try { setUser(JSON.parse(savedUser)); } catch { setUser(null); }
       setClientId(savedClientId);
     }
     setLoading(false);
@@ -27,33 +27,26 @@ export const AuthProvider = ({ children }) => {
   const login = useCallback(async (email, password) => {
     const res = await authApi.login({ email, password });
     if (res.activated) {
-      storage.set("smartpos_token", res.token);
-      storage.set("smartpos_user", { ...res.user, businessName: res.businessName });
-      storage.set("smartpos_clientId", res.clientId);
-
-      currencyApi.get().then((cRes) => {
-        if (cRes.success) {
-          const currency = cRes.data?.currency || "KES";
-          storage.set("smartpos_currency", currency);
-          window.dispatchEvent(new Event("storage"));
-        }
-      }).catch(() => {});
-
+      const userData = { ...res.user, businessName: res.businessName };
+      localStorage.setItem("smartpos_token", res.token);
+      localStorage.setItem("smartpos_user", JSON.stringify(userData));
+      localStorage.setItem("smartpos_clientId", res.clientId);
       setToken(res.token);
-      setUser({ ...res.user, businessName: res.businessName });
+      setUser(userData);
       setClientId(res.clientId);
+      currencyApi.get().then((cRes) => {
+        if (cRes.success) localStorage.setItem("smartpos_currency", cRes.data?.currency || "KES");
+      }).catch(() => {});
     }
     return res;
   }, []);
 
   const logout = useCallback(() => {
-    storage.remove("smartpos_token");
-    storage.remove("smartpos_user");
-    storage.remove("smartpos_clientId");
-    storage.remove("smartpos_currency");
-    setToken(null);
-    setUser(null);
-    setClientId(null);
+    localStorage.removeItem("smartpos_token");
+    localStorage.removeItem("smartpos_user");
+    localStorage.removeItem("smartpos_clientId");
+    localStorage.removeItem("smartpos_currency");
+    setToken(null); setUser(null); setClientId(null);
   }, []);
 
   const hasPermission = useCallback((perm) => {
@@ -62,10 +55,8 @@ export const AuthProvider = ({ children }) => {
     return user.permissions?.[perm] === true;
   }, [user]);
 
-  const isAuthenticated = !!token;
-
   return (
-    <AuthContext.Provider value={{ user, token, clientId, loading, login, logout, isAuthenticated, hasPermission }}>
+    <AuthContext.Provider value={{ user, token, clientId, loading, login, logout, isAuthenticated: !!token, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

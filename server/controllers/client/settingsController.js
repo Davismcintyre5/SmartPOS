@@ -46,16 +46,35 @@ const getReceiptSettings = catchAsync(async (req, res) => {
 
   if (!settings) {
     const client = await Client.findById(req.clientId).lean();
-    settings = {
-      receiptHeader: `${client?.businessName || "SmartPOS"}\n${client?.address || "Nairobi, Kenya"}`,
-      receiptFooter: "Thank you for shopping with us!",
-      vatRate: 0,
-      vatEnabled: false,
-      globalDiscountEnabled: false,
-      globalDiscountName: "Discount",
-      globalDiscountRate: 0,
-      specificDiscounts: [],
-    };
+    const defaultHeader = `${client?.businessName || "SmartPOS"}\n${client?.address || ""}`;
+    settings = await ReceiptSettings.findOneAndUpdate(
+      { clientId: req.clientId },
+      {
+        receiptHeader: defaultHeader,
+        receiptFooter: "Thank you for shopping with us!",
+        vatRate: 0,
+        vatEnabled: false,
+        globalDiscountEnabled: false,
+        globalDiscountName: "Discount",
+        globalDiscountRate: 0,
+        specificDiscounts: [],
+        loyaltyEnabled: false,
+        loyaltyPointsPerAmount: 100,
+        loyaltyLabel: "Loyalty Points",
+      },
+      { upsert: true, new: true }
+    ).lean();
+  }
+
+  // If header is empty, fill with business name
+  if (!settings.receiptHeader) {
+    const client = await Client.findById(req.clientId).lean();
+    const defaultHeader = `${client?.businessName || "SmartPOS"}\n${client?.address || ""}`;
+    settings = await ReceiptSettings.findOneAndUpdate(
+      { clientId: req.clientId },
+      { receiptHeader: defaultHeader },
+      { new: true }
+    ).lean();
   }
 
   success(res, settings);

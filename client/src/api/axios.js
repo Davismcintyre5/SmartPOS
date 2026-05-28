@@ -1,3 +1,4 @@
+// api/axios.js
 import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://smartpos-server.pxxl.click/api";
@@ -8,13 +9,8 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const raw = localStorage.getItem("smartpos_token");
-  if (raw) {
-    let token = raw;
-    try {
-      const parsed = JSON.parse(raw);
-      if (typeof parsed === "string") token = parsed;
-    } catch {}
+  const token = localStorage.getItem("smartpos_token");
+  if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;

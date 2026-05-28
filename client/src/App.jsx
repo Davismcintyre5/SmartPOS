@@ -1,3 +1,4 @@
+// App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "./hooks/useAuth";
@@ -30,19 +31,16 @@ import { NotFound } from "./pages/app/NotFound";
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
   if (loading) return null;
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  if (isAuthenticated) return children;
+  return <Navigate to="/login" replace />;
 };
 
 const MaintenanceScreen = () => (
   <div className="fixed inset-0 z-50 bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
     <div className="text-center max-w-md">
-      <div className="w-20 h-20 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-        <Wrench className="w-10 h-10 text-yellow-600" />
-      </div>
+      <div className="w-20 h-20 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-6"><Wrench className="w-10 h-10 text-yellow-600" /></div>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Under Maintenance</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-        SmartPOS is currently undergoing scheduled maintenance. We'll be back shortly.
-      </p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">SmartPOS is currently undergoing scheduled maintenance.</p>
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">Please check back in a few minutes.</p>
     </div>
   </div>

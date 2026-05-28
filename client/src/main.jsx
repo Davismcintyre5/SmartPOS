@@ -1,4 +1,4 @@
-// src/main.jsx
+// main.jsx
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { Toaster } from "react-hot-toast";
@@ -8,31 +8,15 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
 import { SidebarProvider } from "./context/SidebarContext";
 
-// Register Service Worker for PWA
+// Kill any existing service workers and caches
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/service-worker.js")
-      .then((registration) => {
-        console.log("Service Worker registered:", registration.scope);
-      })
-      .catch((error) => {
-        console.log("Service Worker registration failed:", error);
-      });
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((reg) => reg.unregister());
   });
+  if (window.caches) {
+    caches.keys().then((names) => names.forEach((name) => caches.delete(name)));
+  }
 }
-
-// PWA install prompt
-let deferredPrompt;
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-});
-
-window.addEventListener("appinstalled", () => {
-  deferredPrompt = null;
-  console.log("SmartPOS PWA installed");
-});
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
