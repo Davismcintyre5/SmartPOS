@@ -1,26 +1,12 @@
+// models/client/AISettings.js
 const mongoose = require("mongoose");
 
 const aiSettingsSchema = new mongoose.Schema(
   {
-    clientId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Client",
-      required: true,
-      unique: true,
-    },
-    useGlobalAI: {
-      type: Boolean,
-      default: true,
-    },
-    provider: {
-      type: String,
-      enum: ["hdm", "deepseek", "chatgpt", "claude", "gemini"],
-      default: "hdm",
-    },
-    apiKey: {
-      type: String,
-      default: "",
-    },
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: "Client", required: true, unique: true },
+    useGlobalAI: { type: Boolean, default: true },
+    provider: { type: String, enum: ["hdm", "deepseek", "chatgpt", "claude", "gemini"], default: "hdm" },
+    apiKey: { type: String, default: "" },
     enabledFeatures: {
       posCommands: { type: Boolean, default: true },
       salesAnalytics: { type: Boolean, default: true },

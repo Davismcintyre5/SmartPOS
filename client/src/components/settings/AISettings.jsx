@@ -52,10 +52,7 @@ export const AISettings = () => {
   const handleSaveAI = async () => {
     setSaving(true);
     setSuccess("");
-    try {
-      await aiApi.updateSettings(aiForm);
-      setSuccess("AI settings saved.");
-    } catch {}
+    try { await aiApi.updateSettings(aiForm); setSuccess("AI settings saved."); } catch {}
     setSaving(false);
   };
 
@@ -64,11 +61,7 @@ export const AISettings = () => {
     setGenerating(true);
     try {
       const res = await apiKeyApi.generate({ name: keyName });
-      if (res.success && res.data) {
-        setNewKey(res.data.key);
-        setKeyName("");
-        fetchKeys();
-      }
+      if (res.success && res.data) { setNewKey(res.data.key); setKeyName(""); fetchKeys(); }
     } catch {}
     setGenerating(false);
   };
@@ -92,7 +85,6 @@ export const AISettings = () => {
             <input type="checkbox" checked={aiForm.useGlobalAI} onChange={(e) => setAiForm({ ...aiForm, useGlobalAI: e.target.checked })} className="w-4 h-4 rounded border-gray-300 text-primary-600" />
             <span className="text-sm text-gray-700 dark:text-gray-300">Use global AI (provided by SmartPOS)</span>
           </label>
-
           {!aiForm.useGlobalAI && (
             <div className="space-y-4 pl-7 border-l-2 border-gray-200 dark:border-gray-700">
               <div>
@@ -104,7 +96,7 @@ export const AISettings = () => {
               <Input label="API Key" type="password" value={aiForm.apiKey} onChange={(e) => setAiForm({ ...aiForm, apiKey: e.target.value })} placeholder="Enter your API key" />
             </div>
           )}
-
+          {success && <p className="text-sm text-green-600">{success}</p>}
           <Button onClick={handleSaveAI} loading={saving}>Save AI Settings</Button>
         </div>
       </div>
@@ -115,14 +107,17 @@ export const AISettings = () => {
 
         {!outwardEnabled ? (
           <div className="flex flex-col items-center justify-center py-10 text-center">
-            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
-              <Lock className="w-6 h-6 text-gray-400" />
-            </div>
+            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3"><Lock className="w-6 h-6 text-gray-400" /></div>
             <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">API Keys Disabled</p>
             <p className="text-xs text-gray-500">Your administrator has disabled outward API keys.</p>
           </div>
         ) : (
           <div className="max-w-md space-y-4">
+            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 mb-1">Base URL</p>
+              <p className="text-sm font-mono font-medium text-gray-900 dark:text-white">smartpos-server.pxxl.click</p>
+            </div>
+
             {newKey && (
               <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                 <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-2">New key created — copy it now:</p>

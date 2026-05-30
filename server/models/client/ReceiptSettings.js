@@ -1,4 +1,4 @@
-// models/client/ReceiptSettings.js — add loyalty fields
+// models/client/ReceiptSettings.js
 const mongoose = require("mongoose");
 
 const specificDiscountSchema = new mongoose.Schema({
@@ -11,19 +11,22 @@ const specificDiscountSchema = new mongoose.Schema({
   getProductId: { type: String, default: "" },
 });
 
-const receiptSettingsSchema = new mongoose.Schema({
-  clientId: { type: mongoose.Schema.Types.ObjectId, ref: "Client", required: true, unique: true },
-  receiptHeader: { type: String, default: "" },
-  receiptFooter: { type: String, default: "Thank you for shopping with us!" },
-  vatRate: { type: Number, default: 0 },
-  vatEnabled: { type: Boolean, default: false },
-  globalDiscountEnabled: { type: Boolean, default: false },
-  globalDiscountName: { type: String, default: "Discount" },
-  globalDiscountRate: { type: Number, default: 0 },
-  specificDiscounts: [specificDiscountSchema],
-  loyaltyEnabled: { type: Boolean, default: false },
-  loyaltyPointsPerAmount: { type: Number, default: 100 },
-  loyaltyLabel: { type: String, default: "Loyalty Points" },
-}, { timestamps: true });
+const receiptSettingsSchema = new mongoose.Schema(
+  {
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: "Client", required: true, unique: true },
+    receiptHeader: { type: String, default: "" },
+    receiptFooter: { type: String, default: "Thank you for shopping with us!" },
+    vatRate: { type: Number, default: 0 },
+    vatEnabled: { type: Boolean, default: false },
+    globalDiscountEnabled: { type: Boolean, default: false },
+    globalDiscountName: { type: String, default: "Discount" },
+    globalDiscountRate: { type: Number, default: 0 },
+    specificDiscounts: [specificDiscountSchema],
+    loyaltyEnabled: { type: Boolean, default: false },
+    loyaltyPointsPerAmount: { type: Number, default: 100 },
+    loyaltyLabel: { type: String, default: "Loyalty Points" },
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model("ReceiptSettings", receiptSettingsSchema);

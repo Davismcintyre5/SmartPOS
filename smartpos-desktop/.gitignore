@@ -1,0 +1,17 @@
+# Build outputs
+smartpos-desktop/release/
+smartpos-desktop/dist/
+smartpos-desktop/node_modules/
+
+# Expo
+mobile/android/
+mobile/ios/
+mobile/node_modules/
+mobile/.expo/
+
+# General
+node_modules/
+.env
+*.log
+.DS_Store
+Thumbs.db

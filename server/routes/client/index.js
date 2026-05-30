@@ -2,10 +2,18 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../../middleware/common/auth");
+const apiKeyAuth = require("../../middleware/client/apiKeyAuth");
 const licenseCheck = require("../../middleware/client/licenseCheck");
 const dataIsolation = require("../../middleware/client/dataIsolation");
 
-router.use(auth);
+router.use(apiKeyAuth);
+
+// Only apply JWT auth if not already authenticated via API key
+router.use((req, res, next) => {
+  if (req.isApiKey) return next(); // Skip JWT auth for API key requests
+  auth(req, res, next);
+});
+
 router.use(dataIsolation);
 router.use(licenseCheck);
 
