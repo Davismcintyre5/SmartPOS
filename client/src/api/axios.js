@@ -20,10 +20,13 @@ api.interceptors.response.use(
   (res) => res.data,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem("smartpos_token");
-      localStorage.removeItem("smartpos_user");
-      localStorage.removeItem("smartpos_clientId");
-      window.location.href = "/login";
+      const path = window.location.hash || window.location.pathname;
+      if (!path.includes("/login")) {
+        localStorage.removeItem("smartpos_token");
+        localStorage.removeItem("smartpos_user");
+        localStorage.removeItem("smartpos_clientId");
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(err.response?.data || err);
   }

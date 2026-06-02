@@ -23,13 +23,30 @@ const callAI = async (endpoint, payload) => {
   }
 };
 
-// Gather real business data for chat context
 const gatherBusinessData = async (clientId, message) => {
   const msg = message.toLowerCase();
   const data = {};
 
-  // Always include basic inventory
-  if (msg.includes("stock") || msg.includes("inventory") || msg.includes("product") || msg.includes("low")) {
+  // Always include today's summary for any business question
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todaySales = await Sale.find({
+    clientId,
+    status: "completed",
+    createdAt: { $gte: today },
+  }).lean();
+
+  const todayRevenue = todaySales.reduce((sum, s) => sum + s.total, 0);
+
+  // Broad questions — include everything
+  const broadKeywords = ["recommend", "suggest", "advice", "improve", "grow", "business", "overview", "summary", "report", "performance", "help"];
+  const isBroadQuery = broadKeywords.some((kw) => msg.includes(kw)) || msg.length < 10;
+
+  // Include inventory
+  const stockKeywords = ["stock", "inventory", "product", "low", "item"];
+  const shouldIncludeInventory = isBroadQuery || stockKeywords.some((kw) => msg.includes(kw));
+
+  if (shouldIncludeInventory) {
     const products = await Product.find({ clientId }).lean();
     data.inventory = products.map((p) => ({
       name: p.name,
@@ -40,14 +57,16 @@ const gatherBusinessData = async (clientId, message) => {
     }));
   }
 
-  // Include sales data for sales/revenue questions
-  if (msg.includes("sale") || msg.includes("revenue") || msg.includes("today") || msg.includes("report") || msg.includes("month")) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  // Include sales data
+  const salesKeywords = ["sale", "revenue", "today", "report", "month", "selling", "top", "best", "popular", "transaction", "profit", "income", "earn", "performance", "growth", "trend", "summary", "overview", "dashboard"];
+  const shouldIncludeSales = isBroadQuery || salesKeywords.some((kw) => msg.includes(kw)) || msg.length < 10;
+
+  if (shouldIncludeSales) {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const sales = await Sale.find({
       clientId,
       status: "completed",
-      createdAt: { $gte: today },
+      createdAt: { $gte: thirtyDaysAgo },
     }).lean();
 
     const totalSales = sales.reduce((sum, s) => sum + s.total, 0);
@@ -56,7 +75,6 @@ const gatherBusinessData = async (clientId, message) => {
       paymentMethods[s.paymentMethod] = (paymentMethods[s.paymentMethod] || 0) + s.total;
     });
 
-    // Top products today
     const productSales = {};
     sales.forEach((s) => {
       s.items.forEach((item) => {
@@ -68,36 +86,24 @@ const gatherBusinessData = async (clientId, message) => {
       .slice(0, 5)
       .map(([name, total]) => ({ name, sales: total }));
 
+    // Today's data
+    const todaySalesList = sales.filter((s) => new Date(s.createdAt) >= today);
+    const todayRev = todaySalesList.reduce((sum, s) => sum + s.total, 0);
+
     data.sales = {
       total_sales: totalSales,
       transactions: sales.length,
+      today_revenue: todayRev,
+      today_transactions: todaySalesList.length,
       top_products: topProducts,
       payment_methods: paymentMethods,
     };
-  }
 
-  // Include customer data
-  if (msg.includes("customer") || msg.includes("loyalty") || msg.includes("client")) {
-    const customers = await Customer.find({ clientId }).lean();
-    data.customers = customers.map((c) => ({
-      name: c.name,
-      phone: c.phone,
-      loyaltyPoints: c.loyaltyPoints || 0,
-      totalSpent: c.totalSpent || 0,
-      visitCount: c.visitCount || 0,
-    }));
-  }
-
-  // Monthly overview
-  if (msg.includes("month") || msg.includes("overview") || msg.includes("business") || msg.includes("performance")) {
+    // Monthly overview
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
-    const monthSales = await Sale.find({
-      clientId,
-      status: "completed",
-      createdAt: { $gte: startOfMonth },
-    }).lean();
+    const monthSales = sales.filter((s) => new Date(s.createdAt) >= startOfMonth);
 
     data.monthly = {
       total_sales: monthSales.reduce((sum, s) => sum + s.total, 0),
@@ -106,6 +112,18 @@ const gatherBusinessData = async (clientId, message) => {
         ? Math.round((monthSales.reduce((sum, s) => sum + s.total, 0) / monthSales.length) * 100) / 100
         : 0,
     };
+  }
+
+  // Include customer data
+  if (isBroadQuery || msg.includes("customer") || msg.includes("loyalty") || msg.includes("client") || msg.includes("buyer")) {
+    const customers = await Customer.find({ clientId }).lean();
+    data.customers = customers.map((c) => ({
+      name: c.name,
+      phone: c.phone,
+      loyaltyPoints: c.loyaltyPoints || 0,
+      totalSpent: c.totalSpent || 0,
+      visitCount: c.visitCount || 0,
+    }));
   }
 
   return data;
@@ -117,7 +135,6 @@ const chat = async (clientId, message, userId) => {
     return "AI features are disabled. Enable them in Settings.";
   }
 
-  // Gather real data based on the question
   const businessData = await gatherBusinessData(clientId, message);
 
   const payload = {
@@ -142,9 +159,8 @@ const executeCommand = async (clientId, command) => {
 };
 
 const getSalesAnalytics = async (clientId) => {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const sales = await Sale.find({ clientId, status: "completed", createdAt: { $gte: startOfMonth } }).lean();
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const sales = await Sale.find({ clientId, status: "completed", createdAt: { $gte: thirtyDaysAgo } }).lean();
 
   const totalSales = sales.reduce((s, r) => s + r.total, 0);
   const paymentMethods = {};
@@ -180,8 +196,8 @@ const checkAlerts = async (clientId) => {
 };
 
 const detectAnomalies = async (clientId) => {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const sales = await Sale.find({ clientId, status: "completed", createdAt: { $gte: sevenDaysAgo } }).lean();
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const sales = await Sale.find({ clientId, status: "completed", createdAt: { $gte: thirtyDaysAgo } }).lean();
   const dailyData = {};
   sales.forEach((s) => {
     const date = new Date(s.createdAt).toISOString().split("T")[0];

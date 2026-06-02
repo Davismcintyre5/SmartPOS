@@ -34,13 +34,13 @@ function AppTabs() {
             AI: "robot",
             Settings: "cog",
           };
-          return <MaterialCommunityIcons name={icons[route.name]} size={18} color={color} />;
+          return <MaterialCommunityIcons name={icons[route.name]} size={22} color={color} />;
         },
         tabBarActiveTintColor: "#2563eb",
-        tabBarInactiveTintColor: "gray",
+        tabBarInactiveTintColor: "#9CA3AF",
         headerShown: false,
-        tabBarStyle: { height: 42, paddingBottom: 2, paddingTop: 0 },
-        tabBarLabelStyle: { fontSize: 8, marginTop: -4 },
+        tabBarStyle: { backgroundColor: "#FFFFFF", borderTopColor: "#E5E7EB", paddingTop: 4, height: 60 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginBottom: 4 },
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
@@ -61,7 +61,7 @@ export function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { paddingTop: 0, marginTop: 0 } }}>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <Stack.Screen name="Login" component={LoginScreen} />
         ) : (

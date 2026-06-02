@@ -4,9 +4,10 @@ import { aiApi } from "../../api/aiApi";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "../../components/ui/Button";
 import { Spinner } from "../../components/ui/Spinner";
+import { formatPrice } from "../../utils/formatCurrency";
 import {
-  Bot, User, Send, Sparkles, Trash2, Zap, BarChart3, Package,
-  TrendingUp, MessageSquare, Lightbulb, ArrowRight
+  Bot, User, Send, Sparkles, Trash2, Zap,
+  BarChart3, Package, TrendingUp, Lightbulb,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -15,7 +16,7 @@ export const AIChat = () => {
   const [messages, setMessages] = useState([
     {
       role: "ai",
-      text: `Hello ${user?.name?.split(" ")[0] || "there"}! 👋 I'm your HDM AI business assistant. I can help you with:\n\n• Sales analytics & reports\n• Product & inventory insights\n• Customer trends\n• Business recommendations\n\nJust ask me anything!`,
+      text: `Hello ${user?.name?.split(" ")[0] || "there"}! 👋 I'm HDM AI, your business assistant. Ask me about sales, products, inventory, or reports.`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -26,6 +27,12 @@ export const AIChat = () => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const formatAIResponse = (text) => {
+    return text.replace(/\$\s?([\d,]+\.?\d*)/g, (match, amount) => {
+      return formatPrice(parseFloat(amount.replace(/,/g, "")));
+    });
+  };
 
   const sendMessage = async (text) => {
     const msg = text || input;
@@ -38,7 +45,7 @@ export const AIChat = () => {
     try {
       const res = await aiApi.chat({ message: msg, conversation_id: conversationId });
       if (res.success) {
-        const reply = res.data?.reply || res.reply || "I didn't get that.";
+        const reply = formatAIResponse(res.data?.reply || res.reply || "I didn't get that.");
         setMessages((prev) => [...prev, { role: "ai", text: reply }]);
         if (res.data?.conversation_id) setConversationId(res.data.conversation_id);
       } else {
@@ -76,10 +83,10 @@ export const AIChat = () => {
             </div>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">HDM AI Assistant</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">HDM AI</h1>
             <p className="text-xs text-gray-500 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              Powered by HDM AI — Ready to help
+              Business Assistant — Ready
             </p>
           </div>
         </div>
@@ -108,7 +115,6 @@ export const AIChat = () => {
                   <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {prompt.text}
                   </span>
-                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 ml-auto flex-shrink-0" />
                 </button>
               ))}
             </div>

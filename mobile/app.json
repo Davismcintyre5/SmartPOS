@@ -17,8 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.smartpos.mobile",
       "infoPlist": {
-        "NSCameraUsageDescription": "SmartPOS needs camera access to scan barcodes.",
-        "NSFaceIDUsageDescription": "SmartPOS uses Face ID for quick login."
+        "NSCameraUsageDescription": "SmartPOS needs camera access to scan barcodes."
       }
     },
     "android": {
@@ -29,26 +28,16 @@
       "package": "com.smartpos.mobile",
       "permissions": [
         "CAMERA",
-        "BLUETOOTH",
-        "BLUETOOTH_ADMIN",
-        "BLUETOOTH_CONNECT",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.RECORD_AUDIO"
       ]
     },
-    "plugins": [
-      "expo-camera",
-      "expo-av",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "newArchEnabled": false
-          }
-        }
-      ]
-    ],
+"plugins": [
+  "expo-camera",
+  "expo-av",
+  "expo-local-authentication",
+  "expo-notifications"
+],
     "extra": {
       "eas": {
         "projectId": "eb5ff8d0-a81d-4a4f-844e-61b91030a89f"

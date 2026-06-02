@@ -16,9 +16,13 @@ export const AuthProvider = ({ children }) => {
     const savedUser = localStorage.getItem("smartpos_user");
     const savedClientId = localStorage.getItem("smartpos_clientId");
 
-    if (savedToken && savedUser) {
+    if (savedToken) {
       setToken(savedToken);
-      try { setUser(JSON.parse(savedUser)); } catch { setUser(null); }
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch {
+        setUser(null);
+      }
       setClientId(savedClientId);
     }
     setLoading(false);
@@ -46,7 +50,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("smartpos_user");
     localStorage.removeItem("smartpos_clientId");
     localStorage.removeItem("smartpos_currency");
-    setToken(null); setUser(null); setClientId(null);
+    setToken(null);
+    setUser(null);
+    setClientId(null);
   }, []);
 
   const hasPermission = useCallback((perm) => {

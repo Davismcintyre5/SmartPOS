@@ -28,17 +28,50 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <View style={styles.inner}>
-        <MaterialCommunityIcons name="store" size={50} color="#2563eb" />
+        {/* Logo */}
+        <View style={styles.logoBox}>
+          <MaterialCommunityIcons name="store" size={32} color="white" />
+        </View>
+
         <Text style={styles.title}>SmartPOS</Text>
         <Text style={styles.subtitle}>Sign in to your account</Text>
-        <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-        <View style={styles.passwordContainer}>
-          <TextInput style={styles.passwordInput} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <MaterialCommunityIcons name={showPassword ? "eye-off" : "eye"} size={22} color="#888" />
-          </TouchableOpacity>
+
+        {/* Email */}
+        <View style={styles.inputWrapper}>
+          <Text style={styles.label}>Email Address</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="you@example.com"
+            placeholderTextColor="#64748b"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
         </View>
+
+        {/* Password */}
+        <View style={styles.inputWrapper}>
+          <Text style={styles.label}>Password</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Enter your password"
+              placeholderTextColor="#64748b"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+              <MaterialCommunityIcons name={showPassword ? "eye-off" : "eye"} size={20} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Error */}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {/* Button */}
         <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleLogin} disabled={loading}>
           <Text style={styles.buttonText}>{loading ? "Signing in..." : "Sign In"}</Text>
         </TouchableOpacity>
@@ -48,15 +81,35 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
+  container: { flex: 1, backgroundColor: "#0f172a" },
   inner: { flex: 1, justifyContent: "center", padding: 24, alignItems: "center" },
-  title: { fontSize: 24, fontWeight: "700", color: "#1e293b", marginTop: 12 },
-  subtitle: { fontSize: 14, color: "#888", marginTop: 4, marginBottom: 32 },
-  input: { width: "100%", backgroundColor: "white", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10, padding: 14, fontSize: 15, marginBottom: 12 },
-  passwordContainer: { width: "100%", flexDirection: "row", alignItems: "center", backgroundColor: "white", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10, paddingRight: 14, marginBottom: 12 },
-  passwordInput: { flex: 1, padding: 14, fontSize: 15 },
-  error: { color: "#ef4444", fontSize: 13, marginBottom: 12 },
-  button: { width: "100%", backgroundColor: "#2563eb", padding: 16, borderRadius: 10, alignItems: "center" },
+  logoBox: {
+    width: 56, height: 56, backgroundColor: "#2563eb",
+    borderRadius: 14, alignItems: "center", justifyContent: "center",
+    marginBottom: 16, shadowColor: "#2563eb", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 10, elevation: 8,
+  },
+  title: { fontSize: 24, fontWeight: "800", color: "white", marginBottom: 4 },
+  subtitle: { fontSize: 13, color: "#94a3b8", marginBottom: 32 },
+
+  inputWrapper: { width: "100%", marginBottom: 16 },
+  label: { fontSize: 13, fontWeight: "500", color: "#cbd5e1", marginBottom: 6 },
+  input: {
+    width: "100%", backgroundColor: "#1e293b", borderWidth: 1, borderColor: "#334155",
+    borderRadius: 10, padding: 14, fontSize: 15, color: "white",
+  },
+  passwordContainer: {
+    width: "100%", flexDirection: "row", alignItems: "center",
+    backgroundColor: "#1e293b", borderWidth: 1, borderColor: "#334155",
+    borderRadius: 10, paddingRight: 10,
+  },
+  passwordInput: { flex: 1, padding: 14, fontSize: 15, color: "white" },
+  eyeBtn: { padding: 4 },
+  error: { color: "#ef4444", fontSize: 13, marginBottom: 16, textAlign: "center" },
+  button: {
+    width: "100%", backgroundColor: "#2563eb", padding: 16,
+    borderRadius: 10, alignItems: "center", marginTop: 4,
+  },
   buttonDisabled: { opacity: 0.7 },
   buttonText: { color: "white", fontWeight: "600", fontSize: 16 },
 });

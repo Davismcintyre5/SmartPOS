@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%232563eb'/%3E%3Cstop offset='100%25' style='stop-color:%231d4ed8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='20' fill='url(%23bg)'/%3E%3Cpath d='M25 38l25-19 25 19v32a5 5 0 01-5 5H30a5 5 0 01-5-5z' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpolyline points='38 72 38 48 62 48 62 72' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartPOS — System Documentation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        :root {
+            --primary: #2563eb; --primary-dark: #1d4ed8;
+            --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1; --gray-400: #94a3b8; --gray-500: #64748b;
+            --gray-600: #475569; --gray-700: #334155; --gray-800: #1e293b;
+            --gray-900: #0f172a; --white: #ffffff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.7; color: var(--gray-800); background: var(--gray-50);
+        }
+        .page {
+            background: var(--white); width: 210mm; min-height: 297mm;
+            margin: 20px auto; padding: 25mm 20mm; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            page-break-after: always; position: relative;
+        }
+        @media print {
+            body { background: white; margin: 0; }
+            .page { box-shadow: none; margin: 0; width: 100%; min-height: 100vh; padding: 15mm 20mm; page-break-after: always; }
+        }
+        .cover-page {
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; background: linear-gradient(160deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            color: white; position: relative; overflow: hidden;
+        }
+        .cover-page::before {
+            content: ''; position: absolute; top: -150px; right: -150px;
+            width: 500px; height: 500px; border-radius: 50%;
+            background: rgba(37,99,235,0.08); pointer-events: none;
+        }
+        .cover-page::after {
+            content: ''; position: absolute; bottom: -100px; left: -100px;
+            width: 350px; height: 350px; border-radius: 50%;
+            background: rgba(37,99,235,0.05); pointer-events: none;
+        }
+        .cover-page .badge {
+            display: inline-block; background: rgba(37,99,235,0.3);
+            padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 600;
+            margin-bottom: 24px; letter-spacing: 2px; text-transform: uppercase;
+            border: 1px solid rgba(37,99,235,0.4); position: relative; z-index: 1;
+        }
+        .cover-page h1 { font-size: 48px; font-weight: 800; margin-bottom: 12px; position: relative; z-index: 1; }
+        .cover-page .subtitle { font-size: 20px; font-weight: 400; opacity: 0.8; margin-bottom: 32px; position: relative; z-index: 1; }
+        .cover-page .meta { font-size: 13px; opacity: 0.6; position: relative; z-index: 1; }
+        .cover-page .meta p { margin: 4px 0; }
+
+        h2 { font-size: 26px; font-weight: 700; color: var(--gray-900); margin: 30px 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid var(--primary); }
+        h3 { font-size: 19px; font-weight: 600; color: var(--gray-800); margin: 24px 0 12px 0; }
+        h4 { font-size: 15px; font-weight: 600; color: var(--gray-700); margin: 16px 0 8px 0; }
+        p { margin-bottom: 10px; }
+        ul, ol { margin: 10px 0 18px 18px; }
+        li { margin-bottom: 6px; }
+
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+        th, td { padding: 8px 12px; text-align: left; border: 1px solid var(--gray-200); }
+        th { background: var(--gray-100); font-weight: 600; color: var(--gray-700); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        tr:nth-child(even) td { background: var(--gray-50); }
+
+        .note { background: #eff6ff; border-left: 4px solid var(--primary); padding: 10px 14px; border-radius: 6px; margin: 14px 0; font-size: 13px; }
+        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px 14px; border-radius: 6px; margin: 14px 0; font-size: 13px; }
+        .tip { background: #f0fdf4; border-left: 4px solid #22c55e; padding: 10px 14px; border-radius: 6px; margin: 14px 0; font-size: 13px; }
+
+        pre { background: var(--gray-100); padding: 14px; border-radius: 6px; font-size: 11px; line-height: 1.6; overflow-x: auto; font-family: 'Courier New', monospace; border: 1px solid var(--gray-200); }
+        code { background: var(--gray-100); padding: 2px 6px; border-radius: 4px; font-size: 12px; font-family: 'Courier New', monospace; }
+
+        .footer-note { margin-top: 30px; text-align: center; color: var(--gray-400); font-size: 11px; }
+    </style>
+</head>
+<body>
+
+<!-- ==================== COVER PAGE ==================== -->
+<div class="page cover-page">
+    <div class="badge">Confidential</div>
+    <h1>SmartPOS</h1>
+    <div class="subtitle">System Documentation</div>
+    <p style="max-width:450px;opacity:0.7;position:relative;z-index:1;">Technical architecture, API reference, database schema, deployment guide, and security specifications for developers and system administrators.</p>
+    <div class="meta" style="margin-top:40px;">
+        <p><strong>Version 1.0</strong> | May 2026</p>
+        <p>HDM Developers</p>
+    </div>
+</div>
+
+<!-- ==================== TABLE OF CONTENTS ==================== -->
+<div class="page">
+    <h2>Table of Contents</h2>
+    <ol style="list-style:none;padding:0;">
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>1. Architecture Overview</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>2. Technology Stack</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>3. Server Setup & Configuration</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>4. Database Schema</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>5. API Reference</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>6. Authentication & Authorization</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>7. Web Client Architecture</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>8. Desktop Application</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>9. Mobile Application</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>10. AI Integration</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>11. Payment Integrations</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>12. Security Architecture</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>13. Deployment Guide</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>14. Maintenance & Backup</strong></li>
+        <li style="padding:8px 0;border-bottom:1px solid var(--gray-100);"><strong>15. Troubleshooting</strong></li>
+    </ol>
+</div>
+
+<!-- ==================== 1. ARCHITECTURE ==================== -->
+<div class="page">
+    <h2>1. Architecture Overview</h2>
+    <p>SmartPOS follows a <strong>three-tier architecture</strong> with multiple client applications connected to a central REST API server backed by MongoDB. Desktop and mobile clients include local SQLite databases for offline-first operation.</p>
+
+    <h3>System Diagram</h3>
+    <pre style="font-size:10px;line-height:1.4;">
+┌──────────────────────────────────────────────────────────────────┐
+│                        CLIENT LAYER                               │
+│  ┌──────────┐  ┌───────────┐  ┌──────────┐  ┌───────────┐      │
+│  │ Web POS  │  │ Desktop   │  │  Mobile  │  │  Admin    │      │
+│  │ (React)  │  │(Electron) │  │  (RN)    │  │ (React)   │      │
+│  │ Port 3000│  │           │  │          │  │ Port 3001 │      │
+│  └────┬─────┘  └─────┬─────┘  └────┬─────┘  └─────┬─────┘      │
+│       │              │             │              │             │
+│       └──────────────┴─────────────┴──────────────┘             │
+│                          │ HTTPS                                 │
+└──────────────────────────┼──────────────────────────────────────┘
+                           │
+┌──────────────────────────┼──────────────────────────────────────┐
+│                     SERVER LAYER                                  │
+│  ┌───────────────────────▼────────────────────────────────────┐  │
+│  │              Express API Server (Port 5000)                 │  │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌──────────────────┐ │  │
+│  │  │ Public  │ │ Client  │ │ Admin   │ │   Middleware      │ │  │
+│  │  │ Routes  │ │ Routes  │ │ Routes  │ │ Auth|Rate|Valid   │ │  │
+│  │  └─────────┘ └─────────┘ └─────────┘ └──────────────────┘ │  │
+│  └───────────────────────┬────────────────────────────────────┘  │
+└──────────────────────────┼──────────────────────────────────────┘
+                           │
+┌──────────────────────────┼──────────────────────────────────────┐
+│                      DATA LAYER                                   │
+│  ┌───────────────────────▼────────────────────────────────────┐  │
+│  │                    MongoDB (Atlas)                           │  │
+│  │  Client Data │ Admin Data │ Public Content │ Licenses       │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  ┌─────────────────────┐  ┌─────────────────────┐               │
+│  │ SQLite (Desktop)    │  │ SQLite (Mobile)     │               │
+│  │ Local offline DB    │  │ Local offline DB    │               │
+│  └─────────────────────┘  └─────────────────────┘               │
+└──────────────────────────────────────────────────────────────────┘</pre>
+
+    <h3>Data Flow</h3>
+    <ol>
+        <li><strong>Online Mode:</strong> Client → API Server → MongoDB → Response</li>
+        <li><strong>Offline Mode (Desktop/Mobile):</strong> Client → Local SQLite → Sync Queue → API Server (when online)</li>
+        <li><strong>Sync Engine:</strong> Uploads pending sales, downloads product/customer updates every 30 seconds</li>
+    </ol>
+</div>
+
+<!-- ==================== 2. TECH STACK ==================== -->
+<div class="page">
+    <h2>2. Technology Stack</h2>
+    <table>
+        <tr><th>Component</th><th>Technology</th><th>Version</th><th>Purpose</th></tr>
+        <tr><td>Runtime</td><td>Node.js</td><td>24.13 LTS</td><td>JavaScript runtime</td></tr>
+        <tr><td>Framework</td><td>Express</td><td>4.18</td><td>HTTP server & routing</td></tr>
+        <tr><td>Database</td><td>MongoDB</td><td>8.0</td><td>Primary data store</td></tr>
+        <tr><td>ODM</td><td>Mongoose</td><td>8.0</td><td>Schema modeling</td></tr>
+        <tr><td>Authentication</td><td>JWT</td><td>9.0</td><td>Token-based auth</td></tr>
+        <tr><td>Password Hashing</td><td>bcryptjs</td><td>2.4</td><td>12 salt rounds</td></tr>
+        <tr><td>Validation</td><td>Joi</td><td>17.11</td><td>Input validation</td></tr>
+        <tr><td>Logging</td><td>Winston</td><td>3.11</td><td>Structured logging</td></tr>
+        <tr><td>Rate Limiting</td><td>express-rate-limit</td><td>7.1</td><td>API protection</td></tr>
+        <tr><td>HTTP Client</td><td>Axios</td><td>1.7</td><td>API requests</td></tr>
+        <tr><td>File Upload</td><td>Multer</td><td>1.4</td><td>Multipart handling</td></tr>
+        <tr><td>Cloud Storage</td><td>Cloudinary</td><td>1.41</td><td>Image hosting</td></tr>
+        <tr><td>Email</td><td>Brevo</td><td>-</td><td>Transactional email</td></tr>
+    </table>
+
+    <h3>Frontend Technologies</h3>
+    <table>
+        <tr><th>Component</th><th>Technology</th><th>Version</th></tr>
+        <tr><td>UI Framework</td><td>React</td><td>18.2</td></tr>
+        <tr><td>Build Tool</td><td>Vite</td><td>5.0</td></tr>
+        <tr><td>CSS Framework</td><td>Tailwind CSS</td><td>3.4</td></tr>
+        <tr><td>Routing</td><td>React Router</td><td>6.20</td></tr>
+        <tr><td>Icons</td><td>Lucide React</td><td>0.300</td></tr>
+        <tr><td>Charts</td><td>Recharts</td><td>2.10</td></tr>
+        <tr><td>Barcode</td><td>@zxing/library</td><td>0.20</td></tr>
+        <tr><td>Toasts</td><td>React Hot Toast</td><td>2.4</td></tr>
+        <tr><td>Desktop</td><td>Electron</td><td>28.0</td></tr>
+        <tr><td>Desktop DB</td><td>sql.js</td><td>1.9</td></tr>
+        <tr><td>Mobile</td><td>React Native</td><td>0.81</td></tr>
+        <tr><td>Mobile Build</td><td>Expo SDK</td><td>54</td></tr>
+    </table>
+</div>
+
+<!-- ==================== 3. SERVER SETUP ==================== -->
+<div class="page">
+    <h2>3. Server Setup & Configuration</h2>
+
+    <h3>Directory Structure</h3>
+    <pre style="font-size:10px;">
+smartpos-server/
+├── server.js              # Application entry point
+├── package.json           # Dependencies & scripts
+├── .env                   # Environment variables
+├── dnsSet.js              # DNS resolution fix for MongoDB
+│
+├── config/
+│   ├── env.js             # Environment variable loader
+│   ├── db.js              # MongoDB connection with retry
+│   ├── logger.js          # Winston logger configuration
+│   ├── brevo.js           # Brevo email client
+│   └── cloudinary.js      # Cloudinary configuration
+│
+├── models/
+│   ├── client/            # Client-scoped models (10 files)
+│   │   ├── Product.js     # Products with barcode, price, stock
+│   │   ├── Sale.js        # Sales with items, payments, VAT
+│   │   ├── Customer.js    # Customers with loyalty
+│   │   ├── User.js        # Staff users with roles
+│   │   └── ...            # ApiKey, Currency, AI, Backup, etc.
+│   ├── admin/             # Admin models (10 files)
+│   │   ├── Admin.js       # Admin users
+│   │   ├── Client.js      # Registered businesses
+│   │   ├── Payment.js     # Payment records
+│   │   └── ...            # Subscription, System, etc.
+│   └── public/            # Public models (3 files)
+│       ├── Content.js     # Landing page sections
+│       ├── Inquiry.js     # Contact form submissions
+│       └── License.js     # License keys
+│
+├── controllers/           # Request handlers (30+ files)
+│   ├── client/            # POS, Products, Sales, etc.
+│   ├── admin/             # Admin dashboard, clients, etc.
+│   └── public/            # Auth, landing, payments
+│
+├── routes/                # Express route definitions
+│   ├── client/            # 14 route files
+│   ├── admin/             # 13 route files
+│   └── public/            # 8 route files
+│
+├── services/              # Business logic layer
+├── middleware/             # Auth, rate limit, validation
+├── validators/            # Joi validation schemas
+├── utils/                 # Currency, tokens, API helpers
+├── scripts/               # Seed data, admin CLI
+├── logs/                  # Application logs
+├── uploads/               # Temporary uploads
+└── backups/               # System & client backups</pre>
+
+    <h3>Environment Variables</h3>
+    <table>
+        <tr><th>Variable</th><th>Required</th><th>Description</th></tr>
+        <tr><td>NODE_ENV</td><td>Yes</td><td>development | production</td></tr>
+        <tr><td>PORT</td><td>No</td><td>Server port (default: 5000)</td></tr>
+        <tr><td>MONGO_URI</td><td>Yes</td><td>MongoDB connection string</td></tr>
+        <tr><td>JWT_SECRET</td><td>Yes</td><td>64-char random string for signing</td></tr>
+        <tr><td>JWT_EXPIRE</td><td>No</td><td>Token expiry (default: 7d)</td></tr>
+        <tr><td>CORS_ORIGINS</td><td>Yes</td><td>Comma-separated allowed origins</td></tr>
+        <tr><td>HDM_AI_BASE_URL</td><td>Yes</td><td>AI service endpoint</td></tr>
+        <tr><td>HDM_AI_API_KEY</td><td>Yes</td><td>AI service authentication</td></tr>
+        <tr><td>STRIPE_SECRET_KEY</td><td>No</td><td>Stripe payment key</td></tr>
+        <tr><td>MPESA_CONSUMER_KEY</td><td>No</td><td>M-Pesa API key</td></tr>
+        <tr><td>MPESA_CONSUMER_SECRET</td><td>No</td><td>M-Pesa API secret</td></tr>
+        <tr><td>MPESA_PASSKEY</td><td>No</td><td>M-Pesa passkey</td></tr>
+        <tr><td>MPESA_SHORTCODE</td><td>No</td><td>M-Pesa shortcode</td></tr>
+        <tr><td>MPESA_ENVIRONMENT</td><td>No</td><td>sandbox | production</td></tr>
+        <tr><td>PAYPAL_CLIENT_ID</td><td>No</td><td>PayPal client ID</td></tr>
+        <tr><td>PAYPAL_SECRET</td><td>No</td><td>PayPal secret</td></tr>
+        <tr><td>BREVO_API_KEY</td><td>No</td><td>Email service key</td></tr>
+        <tr><td>CLOUDINARY_CLOUD_NAME</td><td>No</td><td>Cloud storage name</td></tr>
+        <tr><td>CLOUDINARY_API_KEY</td><td>No</td><td>Cloud storage key</td></tr>
+        <tr><td>CLOUDINARY_API_SECRET</td><td>No</td><td>Cloud storage secret</td></tr>
+    </table>
+
+    <h3>Startup Sequence</h3>
+    <ol>
+        <li>Load environment variables from <code>.env</code></li>
+        <li>Connect to MongoDB with automatic retry (5s interval)</li>
+        <li>Configure Cloudinary for image uploads</li>
+        <li>Apply middleware: CORS, JSON parser, Morgan logging, rate limiting</li>
+        <li>Mount API routes at <code>/api</code></li>
+        <li>Start HTTP server on configured port</li>
+        <li>Register graceful shutdown handlers (SIGTERM, SIGINT)</li>
+    </ol>
+</div>
+
+<!-- ==================== 4. DATABASE SCHEMA ==================== -->
+<div class="page">
+    <h2>4. Database Schema</h2>
+    <p>All client-scoped models include a <code>clientId</code> field referencing the <strong>Client</strong> model. This ensures complete data isolation between businesses.</p>
+
+    <h3>Client-Scoped Models</h3>
+    <table>
+        <tr><th>Model</th><th>Collection</th><th>Key Fields</th><th>Indexes</th></tr>
+        <tr>
+            <td>Product</td><td>products</td>
+            <td>name, barcode, price, cost, stock, category, lowStockThreshold</td>
+            <td>{clientId, name:text, barcode:text}</td>
+        </tr>
+        <tr>
+            <td>Sale</td><td>sales</td>
+            <td>receiptNumber, items[], subtotal, discount, total, vatRate, vatAmount, amountPaid, changeAmount, paymentMethod, customerName, cashier, status</td>
+            <td>{clientId, receiptNumber}, {clientId, createdAt}, {clientId, status, createdAt}</td>
+        </tr>
+        <tr>
+            <td>Customer</td><td>customers</td>
+            <td>name, phone, email, loyaltyCardNumber, loyaltyPoints, totalSpent, visitCount</td>
+            <td>{clientId, loyaltyCardNumber} (unique sparse), {clientId, name:text, phone:text, email:text}</td>
+        </tr>
+        <tr>
+            <td>User</td><td>users</td>
+            <td>name, email, password (hashed), role, permissions{}, isOwner, active</td>
+            <td>{clientId, email} (unique)</td>
+        </tr>
+        <tr>
+            <td>ApiKey</td><td>apikeys</td>
+            <td>name, key, maskedKey, active</td>
+            <td>{clientId, key} (unique)</td>
+        </tr>
+        <tr>
+            <td>Currency</td><td>clientcurrencies</td>
+            <td>currency (enum: 11 currencies)</td>
+            <td>{clientId} (unique)</td>
+        </tr>
+        <tr>
+            <td>AISettings</td><td>aisettings</td>
+            <td>useGlobalAI, provider, apiKey, enabledFeatures{}</td>
+            <td>{clientId} (unique)</td>
+        </tr>
+        <tr>
+            <td>ReceiptSettings</td><td>receiptsettings</td>
+            <td>receiptHeader, receiptFooter, vatRate, vatEnabled, globalDiscount*, specificDiscounts[], loyalty*</td>
+            <td>{clientId} (unique)</td>
+        </tr>
+        <tr>
+            <td>Subscription</td><td>clientsubscriptions</td>
+            <td>plan, status, startDate, expiryDate, paymentHistory[]</td>
+            <td>{clientId} (unique)</td>
+        </tr>
+        <tr>
+            <td>Backup</td><td>backups</td>
+            <td>filename, path, size, type, collections[]</td>
+            <td>{clientId}</td>
+        </tr>
+    </table>
+
+    <h3>Admin Models</h3>
+    <table>
+        <tr><th>Model</th><th>Collection</th><th>Key Fields</th></tr>
+        <tr><td>Admin</td><td>admins</td><td>name, email, password, role (admin|superadmin)</td></tr>
+        <tr><td>Client</td><td>clients</td><td>businessName, ownerName, email, phone, address, currency, plan, status, licenseKey, subscriptionExpiry, devices[]</td></tr>
+        <tr><td>Subscription</td><td>subscriptions</td><td>priceMonthly, priceYearly, pricePermanent, currency, freeTrialDays</td></tr>
+        <tr><td>Payment</td><td>payments</td><td>client (ref), amount, currency, method, billingCycle, status, transactionId, approvedBy</td></tr>
+        <tr><td>PaymentMethod</td><td>paymentmethods</td><td>stripe*, mpesa*, paypal* configuration</td></tr>
+        <tr><td>Currency</td><td>currencies</td><td>baseCurrency</td></tr>
+        <tr><td>AIConfig</td><td>aiconfigs</td><td>providers[], globalDefault, landingEnabled, clientEnabled, outwardKeyEnabled</td></tr>
+        <tr><td>Communication</td><td>communications</td><td>emailTemplates{}, smsTemplates{}</td></tr>
+        <tr><td>System</td><td>systems</td><td>appName, primaryColor, logoUrl, maintenanceMode, mobileApp*, desktopApp*</td></tr>
+        <tr><td>SystemBackup</td><td>systembackups</td><td>filename, path, size, scope, createdBy</td></tr>
+    </table>
+
+    <h3>Public Models</h3>
+    <table>
+        <tr><th>Model</th><th>Collection</th><th>Key Fields</th></tr>
+        <tr><td>Content</td><td>contents</td><td>section (unique), title, body, mediaUrl, active</td></tr>
+        <tr><td>Inquiry</td><td>inquiries</td><td>name, email, phone, subject, message, resolved</td></tr>
+        <tr><td>License</td><td>licenses</td><td>clientId, licenseKey (unique), plan, status, devices[], maxDevices, expiresAt</td></tr>
+    </table>
+</div>
+
+<!-- ==================== 5. API REFERENCE ==================== -->
+<div class="page">
+    <h2>5. API Reference</h2>
+    <p><strong>Base URL:</strong> <code>https://smartpos-server.pxxl.click/api</code></p>
+    <p><strong>Content-Type:</strong> <code>application/json</code></p>
+    <p><strong>Authentication:</strong> <code>Authorization: Bearer &lt;token&gt;</code> (for client and admin endpoints)</p>
+
+    <h3>Standard Response Format</h3>
+    <pre>// Success (200, 201)
+{ "success": true, "message": "...", "data": { ... } }
+
+// Error (400, 401, 403, 404, 409, 500)
+{ "success": false, "message": "Error description" }
+
+// Validation Error (400)
+{ "success": false, "message": "Validation failed", "errors": [...] }</pre>
+
+    <h3>HTTP Status Codes Used</h3>
+    <table>
+        <tr><th>Code</th><th>Meaning</th><th>When</th></tr>
+        <tr><td>200</td><td>OK</td><td>Successful GET, PUT, DELETE</td></tr>
+        <tr><td>201</td><td>Created</td><td>Successful POST</td></tr>
+        <tr><td>400</td><td>Bad Request</td><td>Validation failure, bad input</td></tr>
+        <tr><td>401</td><td>Unauthorized</td><td>Missing/invalid/expired JWT</td></tr>
+        <tr><td>403</td><td>Forbidden</td><td>Insufficient permissions, suspended account</td></tr>
+        <tr><td>404</td><td>Not Found</td><td>Resource doesn't exist</td></tr>
+        <tr><td>409</td><td>Conflict</td><td>Duplicate entry (email, barcode)</td></tr>
+        <tr><td>429</td><td>Too Many</td><td>Rate limit exceeded</td></tr>
+        <tr><td>500</td><td>Server Error</td><td>Unhandled exception</td></tr>
+        <tr><td>503</td><td>Unavailable</td><td>Maintenance mode</td></tr>
+    </table>
+
+    <h3>Complete Endpoint Reference</h3>
+
+    <h4>Public Endpoints (No Auth)</h4>
+    <table>
+        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+        <tr><td>GET</td><td>/public/landing/content</td><td>All active landing sections</td></tr>
+        <tr><td>GET</td><td>/public/landing/content/:section</td><td>Specific section (hero, about, faqs, etc.)</td></tr>
+        <tr><td>POST</td><td>/public/landing/inquiry</td><td>Submit contact form</td></tr>
+        <tr><td>POST</td><td>/public/auth/register</td><td>Register free trial (creates client + user + license)</td></tr>
+        <tr><td>POST</td><td>/public/auth/register-pending</td><td>Register paid plan (creates inactive client)</td></tr>
+        <tr><td>POST</td><td>/public/auth/login</td><td>Client login → returns {activated, user, token, clientId}</td></tr>
+        <tr><td>POST</td><td>/public/auth/verify-license</td><td>Verify and activate license key</td></tr>
+        <tr><td>POST</td><td>/public/payments/initiate</td><td>Create payment record</td></tr>
+        <tr><td>POST</td><td>/public/payments/create-intent</td><td>Stripe PaymentIntent</td></tr>
+        <tr><td>POST</td><td>/public/payments/create-order</td><td>PayPal order</td></tr>
+        <tr><td>POST</td><td>/public/payments/mpesa/callback</td><td>M-Pesa confirmation callback</td></tr>
+        <tr><td>GET</td><td>/public/payments/:id/status</td><td>Check payment status</td></tr>
+        <tr><td>GET</td><td>/public/system/downloads</td><td>App download links</td></tr>
+        <tr><td>GET</td><td>/public/system/ai-status</td><td>AI config + maintenance mode status</td></tr>
+        <tr><td>GET</td><td>/public/system/plans</td><td>Subscription pricing</td></tr>
+        <tr><td>GET</td><td>/public/system/payment-methods</td><td>Enabled payment methods</td></tr>
+        <tr><td>POST</td><td>/public/chat</td><td>Landing page AI chat</td></tr>
+    </table>
+
+    <h4>Client Endpoints (JWT Required)</h4>
+    <table>
+        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+        <tr><td>GET</td><td>/client/dashboard</td><td>Stats: revenue, transactions, products, customers</td></tr>
+        <tr><td>GET</td><td>/client/pos/lookup/:barcode</td><td>Find product by barcode</td></tr>
+        <tr><td>POST</td><td>/client/pos/sale</td><td>Process sale with items, payment, VAT, loyalty</td></tr>
+        <tr><td>POST</td><td>/client/pos/hold</td><td>Hold current cart</td></tr>
+        <tr><td>PUT</td><td>/client/pos/resume/:saleId</td><td>Resume held sale</td></tr>
+        <tr><td>GET</td><td>/client/pos/held</td><td>List held sales</td></tr>
+        <tr><td>DELETE</td><td>/client/pos/held/:id</td><td>Delete held sale</td></tr>
+        <tr><td>GET</td><td>/client/products</td><td>List products (search, pagination)</td></tr>
+        <tr><td>GET</td><td>/client/products/:id</td><td>Get single product</td></tr>
+        <tr><td>POST</td><td>/client/products</td><td>Create product</td></tr>
+        <tr><td>PUT</td><td>/client/products/:id</td><td>Update product</td></tr>
+        <tr><td>DELETE</td><td>/client/products/:id</td><td>Delete product</td></tr>
+        <tr><td>GET</td><td>/client/sales</td><td>List sales (search, pagination, cashier filter)</td></tr>
+        <tr><td>GET</td><td>/client/sales/:id</td><td>Get single sale</td></tr>
+        <tr><td>POST</td><td>/client/sales/:id/refund</td><td>Refund sale (restores stock)</td></tr>
+        <tr><td>DELETE</td><td>/client/sales/:id</td><td>Delete sale (owner/manager only)</td></tr>
+        <tr><td>GET</td><td>/client/customers</td><td>List customers</td></tr>
+        <tr><td>GET</td><td>/client/customers/:id</td><td>Get single customer</td></tr>
+        <tr><td>POST</td><td>/client/customers</td><td>Create customer (auto card number)</td></tr>
+        <tr><td>PUT</td><td>/client/customers/:id</td><td>Update customer</td></tr>
+        <tr><td>DELETE</td><td>/client/customers/:id</td><td>Delete customer</td></tr>
+        <tr><td>GET</td><td>/client/reports/sales</td><td>Sales report (?period=today|week|month)</td></tr>
+        <tr><td>GET</td><td>/client/reports/inventory</td><td>Inventory summary + low stock</td></tr>
+        <tr><td>POST</td><td>/client/api-keys/generate</td><td>Create API key</td></tr>
+        <tr><td>GET</td><td>/client/api-keys</td><td>List active API keys (masked)</td></tr>
+        <tr><td>DELETE</td><td>/client/api-keys/:id</td><td>Revoke API key</td></tr>
+        <tr><td>POST</td><td>/client/users/login</td><td>Staff login</td></tr>
+        <tr><td>POST</td><td>/client/users/register</td><td>Add staff (owner only)</td></tr>
+        <tr><td>GET</td><td>/client/users</td><td>List staff</td></tr>
+        <tr><td>PUT</td><td>/client/users/:id</td><td>Update staff</td></tr>
+        <tr><td>DELETE</td><td>/client/users/:id</td><td>Deactivate staff</td></tr>
+        <tr><td>GET</td><td>/client/currency</td><td>Get business currency</td></tr>
+        <tr><td>PUT</td><td>/client/currency</td><td>Update currency</td></tr>
+        <tr><td>POST</td><td>/client/ai/chat</td><td>AI chat with business data</td></tr>
+        <tr><td>POST</td><td>/client/ai/command</td><td>NLP command execution</td></tr>
+        <tr><td>GET</td><td>/client/ai/settings</td><td>Get AI settings</td></tr>
+        <tr><td>PUT</td><td>/client/ai/settings</td><td>Update AI settings</td></tr>
+        <tr><td>GET</td><td>/client/subscription</td><td>Subscription details</td></tr>
+        <tr><td>GET</td><td>/client/subscription/payments</td><td>Payment history</td></tr>
+        <tr><td>POST</td><td>/client/backups</td><td>Create backup</td></tr>
+        <tr><td>GET</td><td>/client/backups</td><td>List backups</td></tr>
+        <tr><td>PUT</td><td>/client/settings/profile</td><td>Update name/password</td></tr>
+        <tr><td>GET</td><td>/client/settings/business</td><td>Get business info</td></tr>
+        <tr><td>PUT</td><td>/client/settings/business</td><td>Update business info</td></tr>
+        <tr><td>GET</td><td>/client/settings/receipt</td><td>Get receipt/tax/discount/loyalty settings</td></tr>
+        <tr><td>PUT</td><td>/client/settings/receipt</td><td>Update receipt/tax/discount/loyalty</td></tr>
+    </table>
+
+    <h4>Admin Endpoints (JWT + Admin Role Required)</h4>
+    <table>
+        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+        <tr><td>POST</td><td>/admin/auth/login</td><td>Admin login</td></tr>
+        <tr><td>GET</td><td>/admin/auth/me</td><td>Current admin profile</td></tr>
+        <tr><td>POST</td><td>/admin/auth/register</td><td>Create admin (superadmin only)</td></tr>
+        <tr><td>GET</td><td>/admin/dashboard</td><td>Stats: clients, revenue, pending payments</td></tr>
+        <tr><td>GET</td><td>/admin/clients</td><td>List clients (?status, ?plan, ?search)</td></tr>
+        <tr><td>GET</td><td>/admin/clients/:id</td><td>Client details</td></tr>
+        <tr><td>PUT</td><td>/admin/clients/:id</td><td>Update client</td></tr>
+        <tr><td>PUT</td><td>/admin/clients/:id/suspend</td><td>Suspend client</td></tr>
+        <tr><td>PUT</td><td>/admin/clients/:id/activate</td><td>Activate client</td></tr>
+        <tr><td>DELETE</td><td>/admin/clients/:id</td><td>Delete client + all data (superadmin)</td></tr>
+        <tr><td>GET</td><td>/admin/subscription</td><td>Get pricing plan</td></tr>
+        <tr><td>PUT</td><td>/admin/subscription</td><td>Update pricing</td></tr>
+        <tr><td>GET</td><td>/admin/payments/pending</td><td>Pending payments</td></tr>
+        <tr><td>GET</td><td>/admin/payments</td><td>All payments</td></tr>
+        <tr><td>PUT</td><td>/admin/payments/:id/approve</td><td>Approve → activates client + generates license</td></tr>
+        <tr><td>PUT</td><td>/admin/payments/:id/reject</td><td>Reject with reason</td></tr>
+        <tr><td>DELETE</td><td>/admin/payments/approved</td><td>Clear approved payments</td></tr>
+        <tr><td>DELETE</td><td>/admin/payments/rejected</td><td>Clear rejected payments</td></tr>
+        <tr><td>GET</td><td>/admin/payment-methods</td><td>Get payment configuration</td></tr>
+        <tr><td>PUT</td><td>/admin/payment-methods</td><td>Update payment methods</td></tr>
+        <tr><td>GET</td><td>/admin/currency</td><td>Get system base currency</td></tr>
+        <tr><td>PUT</td><td>/admin/currency</td><td>Update base currency</td></tr>
+        <tr><td>GET</td><td>/admin/ai-config</td><td>Get AI providers & features</td></tr>
+        <tr><td>PUT</td><td>/admin/ai-config</td><td>Update AI configuration</td></tr>
+        <tr><td>GET</td><td>/admin/communication</td><td>Get email/SMS templates</td></tr>
+        <tr><td>PUT</td><td>/admin/communication</td><td>Update templates</td></tr>
+        <tr><td>GET</td><td>/admin/system</td><td>Get system settings</td></tr>
+        <tr><td>PUT</td><td>/admin/system</td><td>Update settings (maintenance mode, etc.)</td></tr>
+        <tr><td>GET</td><td>/admin/system-backups</td><td>List system backups</td></tr>
+        <tr><td>POST</td><td>/admin/system-backups</td><td>Create backup (superadmin)</td></tr>
+        <tr><td>GET</td><td>/admin/system-backups/:id/download</td><td>Download backup</td></tr>
+        <tr><td>DELETE</td><td>/admin/system-backups/:id</td><td>Delete backup (superadmin)</td></tr>
+        <tr><td>GET</td><td>/admin/content</td><td>All landing content</td></tr>
+        <tr><td>PUT</td><td>/admin/content/:section</td><td>Update section</td></tr>
+        <tr><td>DELETE</td><td>/admin/content/:section</td><td>Delete section</td></tr>
+        <tr><td>GET</td><td>/admin/inquiries</td><td>Contact form submissions</td></tr>
+        <tr><td>PUT</td><td>/admin/inquiries/:id/resolve</td><td>Mark resolved</td></tr>
+        <tr><td>DELETE</td><td>/admin/inquiries/:id</td><td>Delete inquiry</td></tr>
+    </table>
+</div>
+
+<!-- ==================== 6. AUTH ==================== -->
+<div class="page">
+    <h2>6. Authentication & Authorization</h2>
+
+    <h3>JWT Token Structure</h3>
+    <pre>// Client Token
+{
+  "id": "user_id",
+  "clientId": "business_id",
+  "name": "User Name",
+  "role": "owner|admin|manager|cashier",
+  "type": "client",
+  "iat": 1779800000,
+  "exp": 1780400000
+}
+
+// Admin Token
+{
+  "id": "admin_id",
+  "name": "Admin Name",
+  "email": "admin@example.com",
+  "role": "admin|superadmin",
+  "type": "admin",
+  "iat": 1779800000,
+  "exp": 1780400000
+}</pre>
+
+    <h3>Auth Flow</h3>
+    <ol>
+        <li>User logs in with email + password → server validates credentials</li>
+        <li>Server checks license activation status → returns <code>activated: true/false</code></li>
+        <li>If activated → JWT issued with 7-day expiry</li>
+        <li>If not activated → redirect to activation page (enter license key)</li>
+        <li>All subsequent requests include <code>Authorization: Bearer &lt;token&gt;</code></li>
+        <li>Middleware extracts clientId from JWT for data isolation</li>
+    </ol>
+
+    <h3>Middleware Chain (Client Routes)</h3>
+    <pre>Request → auth (verify JWT) → dataIsolation (extract clientId) → licenseCheck (validate license) → Controller</pre>
+
+    <h3>Role-Based Permissions</h3>
+    <table>
+        <tr><th>Permission</th><th>Owner</th><th>Admin</th><th>Manager</th><th>Cashier</th></tr>
+        <tr><td>Manage Products</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+        <tr><td>Process Sales</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+        <tr><td>Manage Customers</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+        <tr><td>View Reports</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+        <tr><td>Manage Staff</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td></tr>
+        <tr><td>Process Refunds</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+    </table>
+</div>
+
+<!-- ==================== 7-9. CLIENTS ==================== -->
+<div class="page">
+    <h2>7. Web Client Architecture</h2>
+    <p><strong>Stack:</strong> React 18 + Vite 5 + Tailwind CSS 3.4 + React Router v6</p>
+    <p><strong>State:</strong> Context API (AuthContext, ThemeContext, SidebarContext, ToastContext, CookieConsentContext)</p>
+    <p><strong>HTTP:</strong> Axios with JWT interceptor. Token stored in localStorage.</p>
+    <p><strong>Barcode:</strong> @zxing/library for camera scanning + keyboard wedge for USB scanners.</p>
+    <p><strong>Build:</strong> <code>npm run build</code> → <code>dist/</code> (static files deployable to any CDN)</p>
+    <p><strong>Dev:</strong> <code>npm run dev</code> on port 3000 with proxy to API server</p>
+
+    <h2>8. Desktop Application</h2>
+    <p><strong>Stack:</strong> Electron 28 + React (same codebase as web) + sql.js (WebAssembly SQLite)</p>
+    <p><strong>Offline DB:</strong> Local SQLite with tables mirroring MongoDB: products, sales, customers, held_sales, settings, sync_queue</p>
+    <p><strong>Sync Engine:</strong> Background process every 30 seconds. Uploads pending sales (synced=0), downloads product/customer updates.</p>
+    <p><strong>Auto-Update:</strong> electron-updater checks for new versions every 4 hours.</p>
+    <p><strong>Build:</strong> <code>npm run build</code> → electron-builder produces NSIS installer (Windows), DMG (macOS), AppImage (Linux)</p>
+
+    <h2>9. Mobile Application</h2>
+    <p><strong>Stack:</strong> React Native 0.81 + Expo SDK 54</p>
+    <p><strong>Navigation:</strong> React Navigation (Bottom Tabs + Native Stack)</p>
+    <p><strong>Offline DB:</strong> expo-sqlite (local SQLite)</p>
+    <p><strong>Camera:</strong> expo-camera with barcode detection (EAN-13, EAN-8, Code-128, Code-39, QR)</p>
+    <p><strong>Audio:</strong> expo-av for scan beep feedback</p>
+    <p><strong>Biometric:</strong> expo-local-authentication for fingerprint/Face ID login</p>
+    <p><strong>Build:</strong> <code>eas build --platform android --profile preview</code> → APK download from Expo</p>
+</div>
+
+<!-- ==================== 10. AI ==================== -->
+<div class="page">
+    <h2>10. AI Integration</h2>
+    <p>SmartPOS integrates with HDM AI (<code>hdmai-server.onrender.com/api/v1</code>) for business intelligence. The AI receives <strong>real business data</strong> with every request — it never guesses or fabricates information.</p>
+
+    <h3>Data Gathering Logic</h3>
+    <p>Before sending a request to HDM AI, the <code>aiService.gatherBusinessData()</code> function:</p>
+    <ol>
+        <li>Analyzes the user's message for keywords (sale, revenue, product, stock, customer, report, etc.)</li>
+        <li>Queries the database for relevant data:
+            <ul>
+                <li><strong>Sales data:</strong> Last 30 days of completed sales, today's revenue, top products, payment methods</li>
+                <li><strong>Inventory data:</strong> All products with stock levels, prices, categories</li>
+                <li><strong>Customer data:</strong> All customers with loyalty points, total spent, visits</li>
+                <li><strong>Monthly overview:</strong> Current month's sales and transactions</li>
+            </ul>
+        </li>
+        <li>Sends the data along with the user's message to HDM AI</li>
+        <li>Formats the response (replaces $ amounts with current currency symbol)</li>
+    </ol>
+
+    <h3>AI Endpoints Used</h3>
+    <table>
+        <tr><th>Endpoint</th><th>Data Sent</th><th>Use Case</th></tr>
+        <tr><td>/smartpos/chat</td><td>Sales, inventory, customers based on keywords</td><td>General business questions</td></tr>
+        <tr><td>/smartpos/command</td><td>Command text only</td><td>NLP commands (add product, check stock)</td></tr>
+        <tr><td>/smartpos/analytics/sales</td><td>Total sales, transactions, top products, payment methods</td><td>Sales analytics</td></tr>
+        <tr><td>/smartpos/forecast/restock</td><td>Current stock, daily velocity, lead times</td><td>Restock predictions</td></tr>
+        <tr><td>/smartpos/alerts/check</td><td>Low stock items, unusual transactions</td><td>Proactive alerts</td></tr>
+        <tr><td>/smartpos/anomaly/detect</td><td>Daily sales data for last 7 days</td><td>Fraud/anomaly detection</td></tr>
+        <tr><td>/smartpos/report/generate</td><td>Report type and period</td><td>Automated report generation</td></tr>
+        <tr><td>/smartpos/search/semantic</td><td>Search query and limit</td><td>Natural language search</td></tr>
+    </table>
+
+    <div class="warning"><strong>Important:</strong> Without the <code>data</code> field, the AI returns "No data provided. Send real data for analysis." Always include relevant business context.</div>
+</div>
+
+<!-- ==================== 11. PAYMENTS ==================== -->
+<div class="page">
+    <h2>11. Payment Integrations</h2>
+
+    <h3>M-Pesa</h3>
+    <p>Supports STK Push, Send Money (manual), Till Number, and Paybill. Configuration managed in admin panel. Callback URL: <code>/api/public/payments/mpesa/callback</code>. Environment toggle between sandbox and production.</p>
+
+    <h3>Stripe</h3>
+    <p>Card payments via PaymentIntents. Webhook endpoint ready for payment confirmation. Requires <code>STRIPE_SECRET_KEY</code> and <code>STRIPE_WEBHOOK_SECRET</code>.</p>
+
+    <h3>PayPal</h3>
+    <p>Order creation and capture flow. Requires <code>PAYPAL_CLIENT_ID</code> and <code>PAYPAL_SECRET</code>. Sandbox/production toggle.</p>
+
+    <h3>Payment Flow</h3>
+    <ol>
+        <li>Client selects plan on pricing page → fills registration form → lands on checkout</li>
+        <li>Selects payment method → follows instructions (M-Pesa manual) or completes payment (Stripe/PayPal)</li>
+        <li>Clicks "I've Paid" → system creates inactive client + payment record (status: pending)</li>
+        <li>Admin reviews payment → approves or rejects</li>
+        <li>On approval: client activated, license generated, user activated, email sent with license key</li>
+        <li>Unpaid registrations auto-rejected after 3 hours</li>
+    </ol>
+</div>
+
+<!-- ==================== 12. SECURITY ==================== -->
+<div class="page">
+    <h2>12. Security Architecture</h2>
+
+    <h3>Authentication</h3>
+    <ul>
+        <li>JWT tokens signed with HS256, 7-day expiry</li>
+        <li>Passwords hashed with bcrypt (12 salt rounds)</li>
+        <li>Tokens stored in localStorage (web) / AsyncStorage (mobile)</li>
+        <li>Automatic logout on 401 response (interceptor clears storage)</li>
+    </ul>
+
+    <h3>Authorization</h3>
+    <ul>
+        <li>Role-based access control (Owner > Admin > Manager > Cashier)</li>
+        <li>Granular permissions for each staff role</li>
+        <li>Sidebar items and settings tabs hidden based on permissions</li>
+        <li>Data isolation: every query scoped by <code>clientId</code> from JWT</li>
+    </ul>
+
+    <h3>API Protection</h3>
+    <ul>
+        <li>CORS whitelist via environment variable</li>
+        <li>Rate limiting: General (200/15min), Auth (20/15min), Payment (10/min)</li>
+        <li>Input validation with Joi schemas on all endpoints</li>
+        <li>Error stack traces hidden in production</li>
+        <li>Maintenance mode returns 503 for all public/client routes</li>
+    </ul>
+
+    <h3>Data Protection</h3>
+    <ul>
+        <li>TLS 1.3 for all data in transit</li>
+        <li>MongoDB Atlas encryption at rest</li>
+        <li>API keys generated with crypto.randomBytes, displayed masked</li>
+        <li>No credit card numbers or M-Pesa PINs stored</li>
+        <li>Payment processing by PCI-compliant third parties</li>
+    </ul>
+
+    <h3>License Security</h3>
+    <ul>
+        <li>License keys: SMART-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX format</li>
+        <li>Generated with crypto.randomBytes (not predictable)</li>
+        <li>Device activation required before login</li>
+        <li>Max device limit per license (default: 5)</li>
+        <li>Licenses can be revoked by admin</li>
+    </ul>
+</div>
+
+<!-- ==================== 13. DEPLOYMENT ==================== -->
+<div class="page">
+    <h2>13. Deployment Guide</h2>
+
+    <h3>Server Deployment</h3>
+    <ol>
+        <li>Set up Node.js hosting (Render, DigitalOcean, AWS EC2, or any VPS)</li>
+        <li>Clone repository: <code>git clone &lt;repo&gt;</code></li>
+        <li>Install: <code>cd server && npm install</code></li>
+        <li>Configure <code>.env</code> with production values (see Section 3)</li>
+        <li>Ensure MongoDB Atlas IP whitelist includes server IP</li>
+        <li>Start: <code>npm start</code> or use PM2: <code>pm2 start server.js --name smartpos</code></li>
+        <li>Set up Nginx reverse proxy for HTTPS</li>
+    </ol>
+
+    <h3>Web Client Deployment</h3>
+    <ol>
+        <li>Build: <code>cd client && npm run build</code></li>
+        <li>Deploy <code>dist/</code> folder to Vercel, Netlify, or Cloudflare Pages</li>
+        <li>Set environment variable: <code>VITE_API_BASE_URL=https://smartpos-server.pxxl.click/api</code></li>
+    </ol>
+
+    <h3>Admin Panel Deployment</h3>
+    <ol>
+        <li>Build: <code>cd admin && npm run build</code></li>
+        <li>Deploy <code>dist/</code> to separate subdomain (e.g., hdm-admin.pxxl.click)</li>
+        <li>Set environment variable: <code>VITE_API_BASE_URL=https://smartpos-server.pxxl.click/api/admin</code></li>
+    </ol>
+
+    <h3>Desktop App Distribution</h3>
+    <ol>
+        <li>Build: <code>cd smartpos-desktop && npm run build</code></li>
+        <li>Distribute <code>release/SmartPOS Setup 1.0.0.exe</code></li>
+        <li>Configure auto-update server URL in <code>electron/services/updater.js</code></li>
+    </ol>
+
+    <h3>Mobile App Distribution</h3>
+    <ol>
+        <li>Build: <code>cd mobile && eas build --platform android --profile preview</code></li>
+        <li>Download APK from Expo dashboard</li>
+        <li>Distribute via direct download, Google Play Console, or enterprise MDM</li>
+    </ol>
+</div>
+
+<!-- ==================== 14. MAINTENANCE ==================== -->
+<div class="page">
+    <h2>14. Maintenance & Backup</h2>
+
+    <h3>Backup System</h3>
+    <ul>
+        <li><strong>Client Backups:</strong> Manual + scheduled. Uses mongodump with clientId filter. Stored in <code>backups/clients/</code>.</li>
+        <li><strong>System Backups:</strong> Admin-only. Full database dump or scoped (clients, admin, public). Stored in <code>backups/system/</code>.</li>
+    </ul>
+
+    <h3>Maintenance Mode</h3>
+    <p>Admin can enable maintenance mode from System Settings. All public and client routes return 503. Admin panel remains accessible. Landing page shows maintenance message.</p>
+
+    <h3>Logging</h3>
+    <ul>
+        <li><strong>Winston logger:</strong> Structured JSON logs</li>
+        <li><strong>Log files:</strong> <code>error.log</code> (errors only), <code>combined.log</code> (all levels)</li>
+        <li><strong>Max size:</strong> 10MB per file, 5 files retained</li>
+        <li><strong>Console:</strong> Colorized output in development</li>
+    </ul>
+
+    <h3>Monitoring Recommendations</h3>
+    <ul>
+        <li>Set up uptime monitoring (UptimeRobot, Pingdom)</li>
+        <li>Monitor MongoDB Atlas metrics (connections, disk, memory)</li>
+        <li>Watch error logs for unusual patterns</li>
+        <li>Regularly review rate limit hits for potential abuse</li>
+    </ul>
+</div>
+
+<!-- ==================== 15. TROUBLESHOOTING ==================== -->
+<div class="page">
+    <h2>15. Troubleshooting</h2>
+
+    <h3>Common Issues</h3>
+
+    <table>
+        <tr><th>Issue</th><th>Likely Cause</th><th>Solution</th></tr>
+        <tr>
+            <td>401 Unauthorized on all requests</td>
+            <td>Token expired or missing</td>
+            <td>Re-login. Check localStorage for token.</td>
+        </tr>
+        <tr>
+            <td>403 Forbidden</td>
+            <td>Account suspended or insufficient permissions</td>
+            <td>Contact admin to check account status.</td>
+        </tr>
+        <tr>
+            <td>409 Duplicate on customer creation</td>
+            <td>loyaltyCardNumber already exists in another client</td>
+            <td>Fixed in v1.0: compound unique index {clientId, loyaltyCardNumber}</td>
+        </tr>
+        <tr>
+            <td>400 Validation failed on sale</td>
+            <td>Missing required fields or invalid values</td>
+            <td>Check request payload against API schema.</td>
+        </tr>
+        <tr>
+            <td>MongoDB connection timeout</td>
+            <td>IP not whitelisted in Atlas</td>
+            <td>Add server IP to MongoDB Atlas Network Access.</td>
+        </tr>
+        <tr>
+            <td>Desktop app blank screen</td>
+            <td>file:// protocol doesn't support ES modules</td>
+            <td>Use HashRouter for Electron builds.</td>
+        </tr>
+        <tr>
+            <td>Mobile build fails (Gradle)</td>
+            <td>newArchEnabled=true with incompatible native modules</td>
+            <td>Set newArchEnabled=false via expo-build-properties plugin.</td>
+        </tr>
+        <tr>
+            <td>Receipt showing wrong business name</td>
+            <td>receiptHeader not configured</td>
+            <td>Go to Settings → Receipt and set header.</td>
+        </tr>
+        <tr>
+            <td>AI returns "No data provided"</td>
+            <td>data field missing from request</td>
+            <td>Ensure aiService.gatherBusinessData() is called before AI request.</td>
+        </tr>
+    </table>
+
+    <h3>Support Contact</h3>
+    <p>📧 <strong>Email:</strong> davismcintyre5@gmail.com</p>
+    <p>📱 <strong>Phone:</strong> +254 768 784 909</p>
+    <p>🔗 <strong>Website:</strong> hdmdevelopers.pxxl.click</p>
+</div>
+
+<!-- ==================== FINAL PAGE ==================== -->
+<div class="page">
+    <h2>Document Information</h2>
+    <table>
+        <tr><td><strong>Document Title</strong></td><td>SmartPOS — System Documentation</td></tr>
+        <tr><td><strong>Version</strong></td><td>1.0</td></tr>
+        <tr><td><strong>Date</strong></td><td>May 2026</td></tr>
+        <tr><td><strong>Classification</strong></td><td>Confidential — For authorized developers and system administrators only</td></tr>
+        <tr><td><strong>Authors</strong></td><td>Davix HDM (Lead Developer) & Caro Asha (UI/UX Designer)</td></tr>
+        <tr><td><strong>Repository</strong></td><td>https://github.com/Davismcintyre5</td></tr>
+        <tr><td><strong>Support</strong></td><td>davismcintyre5@gmail.com | +254 768 784 909</td></tr>
+    </table>
+
+    <div class="note" style="margin-top:40px;">
+        <strong>End of System Documentation</strong><br>
+        This document covers SmartPOS version 1.0 system architecture, API reference, database schema, and deployment procedures. For user-facing documentation, refer to the SmartPOS User Guide.
+    </div>
+
+    <p class="footer-note" style="margin-top:60px;">SmartPOS © 2026 HDM Developers. All rights reserved. Confidential.</p>
+</div>
+
+</body>
+</html>

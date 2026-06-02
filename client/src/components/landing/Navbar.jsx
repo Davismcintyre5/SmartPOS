@@ -1,4 +1,4 @@
-// Navbar
+// components/landing/Navbar.jsx
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Store, Menu, X, ChevronDown, Sun, Moon } from "lucide-react";
@@ -13,6 +13,7 @@ export const Navbar = () => {
   const { darkMode, toggleDarkMode } = useTheme();
 
   const isHome = location.pathname === "/";
+  const hasToken = !!localStorage.getItem("smartpos_token");
 
   const scrollTo = (id) => {
     setTimeout(() => {
@@ -72,12 +73,16 @@ export const Navbar = () => {
           <button onClick={toggleDarkMode} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors">
             {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
-          <Link to="/login">
-            <Button variant="outline" size="sm">Login</Button>
-          </Link>
-          <Link to="/pricing">
-            <Button size="sm">Get Started</Button>
-          </Link>
+          {hasToken ? (
+            <Link to="/app/dashboard">
+              <Button size="sm">Launch App</Button>
+            </Link>
+          ) : (
+            <>
+              <Link to="/login"><Button variant="outline" size="sm">Login</Button></Link>
+              <Link to="/pricing"><Button size="sm">Get Started</Button></Link>
+            </>
+          )}
         </div>
 
         <button className="md:hidden p-2 text-gray-600" onClick={() => setOpen(!open)}>
@@ -97,8 +102,14 @@ export const Navbar = () => {
           <Link to="/help" onClick={() => setOpen(false)} className="block text-sm font-medium text-gray-600 dark:text-gray-400">Help Center</Link>
           <button onClick={() => handleNav("contact")} className="block w-full text-left text-sm font-medium text-gray-600 dark:text-gray-400">Contact</button>
           <div className="flex gap-3 pt-3 border-t border-gray-200 dark:border-gray-800">
-            <Link to="/login" className="flex-1"><Button variant="outline" className="w-full" size="sm">Login</Button></Link>
-            <Link to="/pricing" className="flex-1"><Button className="w-full" size="sm">Get Started</Button></Link>
+            {hasToken ? (
+              <Link to="/app/dashboard" className="flex-1"><Button className="w-full" size="sm">Launch App</Button></Link>
+            ) : (
+              <>
+                <Link to="/login" className="flex-1"><Button variant="outline" className="w-full" size="sm">Login</Button></Link>
+                <Link to="/pricing" className="flex-1"><Button className="w-full" size="sm">Get Started</Button></Link>
+              </>
+            )}
           </div>
         </div>
       )}

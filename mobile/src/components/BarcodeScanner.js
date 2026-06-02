@@ -1,7 +1,8 @@
 // src/components/BarcodeScanner.js
 import React, { useState, useRef } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Vibration } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { Audio } from "expo-av";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function BarcodeScanner({ onScan, enabled = true }) {
@@ -9,21 +10,21 @@ export default function BarcodeScanner({ onScan, enabled = true }) {
   const [scanning, setScanning] = useState(false);
   const scannedRef = useRef(false);
 
-  const playBeep = () => Vibration.vibrate(50);
-
-  if (!permission) return <View style={styles.container} />;
-
-  if (!permission.granted) {
-    return (
-      <View style={styles.permissionContainer}>
-        <MaterialCommunityIcons name="camera-off" size={40} color="#888" />
-        <Text style={styles.permissionText}>Camera access needed</Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Grant Permission</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const playBeep = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require("../../assets/scan-beep.mp3"),
+        { shouldPlay: true }
+      );
+      await sound.playAsync();
+      // Unload after playing
+      setTimeout(() => {
+        sound.unloadAsync();
+      }, 1000);
+    } catch (err) {
+      console.log("Beep error:", err.message);
+    }
+  };
 
   const handleBarcodeScanned = ({ data }) => {
     if (scannedRef.current || !enabled) return;
@@ -33,10 +34,18 @@ export default function BarcodeScanner({ onScan, enabled = true }) {
     setTimeout(() => { scannedRef.current = false; }, 2000);
   };
 
+  const startScanning = async () => {
+    if (!permission?.granted) {
+      const result = await requestPermission();
+      if (!result.granted) return;
+    }
+    setScanning(true);
+  };
+
   if (!scanning) {
     return (
-      <TouchableOpacity style={styles.scanButton} onPress={() => setScanning(true)}>
-        <MaterialCommunityIcons name="barcode-scan" size={24} color="#2563eb" />
+      <TouchableOpacity style={styles.scanButton} onPress={startScanning}>
+        <MaterialCommunityIcons name="barcode-scan" size={20} color="#2563eb" />
         <Text style={styles.scanButtonText}>Scan Barcode</Text>
       </TouchableOpacity>
     );
@@ -48,12 +57,14 @@ export default function BarcodeScanner({ onScan, enabled = true }) {
         style={styles.camera}
         onBarcodeScanned={handleBarcodeScanned}
         barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "code128", "code39", "qr"] }}
+        facing="back"
       >
         <View style={styles.overlay}>
           <View style={styles.scanArea} />
           <TouchableOpacity style={styles.closeButton} onPress={() => setScanning(false)}>
-            <MaterialCommunityIcons name="close" size={28} color="white" />
+            <MaterialCommunityIcons name="close" size={24} color="white" />
           </TouchableOpacity>
+          <Text style={styles.scanHint}>Point camera at barcode</Text>
         </View>
       </CameraView>
     </View>
@@ -61,16 +72,16 @@ export default function BarcodeScanner({ onScan, enabled = true }) {
 }
 
 const styles = StyleSheet.create({
-  container: { height: 200 },
-  permissionContainer: { alignItems: "center", justifyContent: "center", padding: 20, height: 200 },
-  permissionText: { color: "#888", marginTop: 10, textAlign: "center" },
-  permissionButton: { marginTop: 12, backgroundColor: "#2563eb", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  permissionButtonText: { color: "white", fontWeight: "600" },
-  scanButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 8, borderWidth: 1, borderColor: "#2563eb", borderRadius: 8, gap: 6, marginBottom: 6 },
-  scanButtonText: { color: "#2563eb", fontWeight: "600", fontSize: 13 },
-  scannerContainer: { height: 250, borderRadius: 12, overflow: "hidden" },
+  scanButton: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    padding: 10, borderWidth: 1.5, borderColor: "#2563eb", borderRadius: 10,
+    gap: 8, marginBottom: 8, backgroundColor: "#1e293b",
+  },
+  scanButtonText: { color: "#3b82f6", fontWeight: "600", fontSize: 14 },
+  scannerContainer: { height: 280, borderRadius: 12, overflow: "hidden", marginBottom: 8 },
   camera: { flex: 1 },
-  overlay: { flex: 1, justifyContent: "center", alignItems: "center" },
-  scanArea: { width: 250, height: 150, borderWidth: 2, borderColor: "rgba(37,99,235,0.8)", borderRadius: 12 },
-  closeButton: { position: "absolute", top: 10, right: 10, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, padding: 6 },
+  overlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.3)" },
+  scanArea: { width: 200, height: 120, borderWidth: 2, borderColor: "rgba(37,99,235,0.8)", borderRadius: 12 },
+  closeButton: { position: "absolute", top: 12, right: 12, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 20, padding: 8 },
+  scanHint: { color: "white", fontSize: 12, marginTop: 16, opacity: 0.8 },
 });

@@ -35,22 +35,21 @@ export const Dashboard = () => {
     else setGreeting("Good Evening");
   }, []);
 
-  const fetchDashboard = async () => {
+  const fetchAll = async () => {
     try {
       const params = {};
       if (isCashier) params.cashier = user.id;
-      const res = await dashboardApi.getDashboard(params);
-      if (res.success) setData(res.data || res);
+      const [dashRes, prodRes] = await Promise.all([
+        dashboardApi.getDashboard(params),
+        productApi.getAll({ limit: 200 }),
+      ]);
+      if (dashRes.success) setData(dashRes.data || dashRes);
+      if (prodRes.success) setProducts(prodRes.data?.products || prodRes.products || []);
     } catch {}
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchDashboard();
-    productApi.getAll({ limit: 200 }).then((res) => {
-      if (res.success) setProducts(res.data?.products || res.products || []);
-    }).catch(() => {});
-  }, []);
+  useEffect(() => { fetchAll(); }, []);
 
   const handleScan = useCallback(async (barcode) => {
     if (!hasPermission("processSales")) {
@@ -84,16 +83,17 @@ export const Dashboard = () => {
     { label: "Reports", icon: TrendingUp, color: "bg-orange-50 dark:bg-orange-900/20 text-orange-600 hover:bg-orange-100 dark:hover:bg-orange-900/40", onClick: () => navigate("/app/reports"), show: hasPermission("viewReports") },
   ];
 
+  // Dynamic setup steps based on actual data
   const steps = [
     { step: 1, text: "Set your currency", icon: DollarSign, done: true, show: isOwner, action: () => navigate("/app/settings") },
     { step: 2, text: "Add your first products", icon: Package, done: (data?.totalProducts || 0) > 0, show: hasPermission("manageProducts"), action: () => navigate("/app/products/new") },
     { step: 3, text: "Process your first sale", icon: ShoppingCart, done: (data?.todayTransactions || 0) > 0, show: hasPermission("processSales"), action: () => navigate("/app/pos") },
     { step: 4, text: "Add customer info", icon: Users, done: (data?.totalCustomers || 0) > 0, show: hasPermission("manageCustomers"), action: () => navigate("/app/customers/new") },
-    { step: 5, text: "Review your reports", icon: TrendingUp, done: false, show: hasPermission("viewReports"), action: () => navigate("/app/reports") },
+    { step: 5, text: "Review your reports", icon: TrendingUp, done: (data?.totalCustomers || 0) > 0 && (data?.todayTransactions || 0) > 0, show: hasPermission("viewReports"), action: () => navigate("/app/reports") },
   ].filter(s => s.show);
 
   const completedSteps = steps.filter(s => s.done).length;
-  const progress = Math.round((completedSteps / steps.length) * 100);
+  const progress = steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0;
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -106,30 +106,43 @@ export const Dashboard = () => {
 
   return (
     <div>
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{greeting}, {user?.name?.split(" ")[0]} 👋</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {greeting}, {user?.name?.split(" ")[0]} 👋
+          </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {isCashier ? "Your personal sales overview" : "Here's what's happening with your business today."}
           </p>
         </div>
         {hasPermission("processSales") && (
-          <button onClick={() => setCameraOn(!cameraOn)} className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all ${cameraOn ? "bg-primary-50 border-primary-500 text-primary-600 shadow-sm" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-primary-300"}`}>
+          <button
+            onClick={() => setCameraOn(!cameraOn)}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all ${
+              cameraOn
+                ? "bg-primary-50 border-primary-500 text-primary-600 shadow-sm"
+                : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-primary-300"
+            }`}
+          >
             {cameraOn ? <CameraOff className="w-5 h-5" /> : <ScanLine className="w-5 h-5" />}
             {cameraOn ? "Stop Scanner" : "Quick Scan"}
           </button>
         )}
       </div>
 
+      {/* Camera */}
       {cameraOn && (
         <div className="mb-6 rounded-xl overflow-hidden border-2 border-primary-300 dark:border-primary-700 shadow-lg">
           <video id="camera-preview" className="w-full h-48 object-cover bg-black" />
           <div className="bg-gray-900 text-white text-xs text-center py-2 flex items-center justify-center gap-2">
-            <ScanLine className="w-4 h-4" /> Scan barcode to quickly start a sale in POS
+            <ScanLine className="w-4 h-4" />
+            Scan a barcode to quickly start a sale in POS
           </div>
         </div>
       )}
 
+      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {stats.filter(s => s.show).map((s) => (
           <div key={s.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow">
@@ -145,9 +158,12 @@ export const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Quick Actions */}
         <div className="lg:col-span-2">
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2"><Zap className="w-5 h-5 text-yellow-500" /> Quick Actions</h2>
+            <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-yellow-500" /> Quick Actions
+            </h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {quickActions.filter(a => a.show).map((a) => (
                 <button key={a.label} onClick={a.onClick} className={`p-4 rounded-xl transition-all text-center ${a.color}`}>
@@ -159,21 +175,39 @@ export const Dashboard = () => {
           </div>
         </div>
 
+        {/* Setup Progress */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-500" /> Setup</h2>
+            <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-500" /> Setup
+            </h2>
             <span className="text-xs font-medium text-gray-500">{completedSteps}/{steps.length} done</span>
           </div>
+
           <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full mb-5">
-            <div className="h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+            <div
+              className="h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
           </div>
+
           <div className="space-y-1">
             {steps.map((s) => (
-              <button key={s.step} onClick={s.action} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors group">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${s.done ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-gray-100 dark:bg-gray-700 text-gray-400 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/20 group-hover:text-primary-600"}`}>
+              <button
+                key={s.step}
+                onClick={s.action}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors group"
+              >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                  s.done
+                    ? "bg-green-100 dark:bg-green-900/30 text-green-600"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-400 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/20 group-hover:text-primary-600"
+                }`}>
                   {s.done ? <CheckCircle className="w-4 h-4" /> : <span className="text-xs font-bold">{s.step}</span>}
                 </div>
-                <span className={`text-sm ${s.done ? "text-gray-500 dark:text-gray-400" : "text-gray-700 dark:text-gray-300 group-hover:text-primary-600"}`}>{s.text}</span>
+                <span className={`text-sm ${s.done ? "text-gray-500 dark:text-gray-400" : "text-gray-700 dark:text-gray-300 group-hover:text-primary-600"}`}>
+                  {s.text}
+                </span>
                 <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary-500 ml-auto" />
               </button>
             ))}
@@ -181,18 +215,28 @@ export const Dashboard = () => {
         </div>
       </div>
 
+      {/* Footer info */}
       <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3">
           <Store className="w-8 h-8 text-primary-500" />
-          <div><p className="text-xs text-gray-500">Business</p><p className="text-sm font-medium text-gray-900 dark:text-white">{user?.businessName || "SmartPOS"}</p></div>
+          <div>
+            <p className="text-xs text-gray-500">Business</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.businessName || "SmartPOS"}</p>
+          </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3">
           <Clock className="w-8 h-8 text-blue-500" />
-          <div><p className="text-xs text-gray-500">Date</p><p className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(new Date())}</p></div>
+          <div>
+            <p className="text-xs text-gray-500">Date</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(new Date())}</p>
+          </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3">
           <AlertCircle className="w-8 h-8 text-amber-500" />
-          <div><p className="text-xs text-gray-500">Role</p><p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{user?.role}</p></div>
+          <div>
+            <p className="text-xs text-gray-500">Role</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{user?.role}</p>
+          </div>
         </div>
       </div>
     </div>

@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%232563eb'/%3E%3Cstop offset='100%25' style='stop-color:%231d4ed8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='20' fill='url(%23bg)'/%3E%3Cpath d='M25 38l25-19 25 19v32a5 5 0 01-5 5H30a5 5 0 01-5-5z' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpolyline points='38 72 38 48 62 48 62 72' fill='none' stroke='white' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartPOS — User & System Documentation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --gray-900: #0f172a;
+            --white: #ffffff;
+            --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+            --shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+            --radius: 8px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.7;
+            color: var(--gray-800);
+            background: var(--gray-50);
+        }
+
+        .page {
+            background: var(--white);
+            width: 210mm;
+            min-height: 297mm;
+            margin: 20px auto;
+            padding: 30mm 25mm 25mm 25mm;
+            box-shadow: var(--shadow-lg);
+            page-break-after: always;
+            position: relative;
+        }
+
+        @media print {
+            body {
+                background: white;
+                margin: 0;
+                padding: 0;
+            }
+            .page {
+                box-shadow: none;
+                margin: 0;
+                width: 100%;
+                min-height: 100vh;
+                padding: 15mm 20mm;
+                page-break-after: always;
+            }
+        }
+
+        /* Cover Page */
+        .cover-page {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+            color: white;
+        }
+        .cover-page .logo {
+            width: 120px;
+            height: 120px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 40px;
+            backdrop-filter: blur(10px);
+        }
+        .cover-page h1 {
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            letter-spacing: -1px;
+        }
+        .cover-page .subtitle {
+            font-size: 24px;
+            font-weight: 500;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+        .cover-page .meta {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-top: 40px;
+        }
+        .cover-page .version {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Section Titles */
+        h2 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin: 40px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary);
+        }
+        h3 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin: 30px 0 15px 0;
+        }
+        h4 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin: 20px 0 10px 0;
+        }
+
+        p {
+            margin-bottom: 12px;
+        }
+
+        ul, ol {
+            margin: 12px 0 20px 20px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 10px 14px;
+            text-align: left;
+            border: 1px solid var(--gray-200);
+        }
+        th {
+            background: var(--gray-100);
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        .note {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary);
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .tip {
+            background: #f0fdf4;
+            border-left: 4px solid #22c55e;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            margin: 16px 0;
+            font-size: 14px;
+        }
+
+        .toc {
+            list-style: none;
+            padding: 0;
+        }
+        .toc li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--gray-100);
+        }
+        .toc a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        .toc .sub {
+            padding-left: 20px;
+            font-size: 14px;
+        }
+
+        .developer-card {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            background: var(--gray-50);
+        }
+        .developer-card .avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .developer-card .info h3 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+        }
+        .developer-card .info p {
+            margin: 2px 0;
+            font-size: 14px;
+            color: var(--gray-600);
+        }
+
+        .footer-note {
+            margin-top: 40px;
+            text-align: center;
+            color: var(--gray-400);
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ==================== COVER PAGE ==================== -->
+<div class="page cover-page">
+    <div class="logo">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+    </div>
+    <div class="version">Version 1.0</div>
+    <h1>SmartPOS</h1>
+    <div class="subtitle">Complete User & System Documentation</div>
+    <p style="max-width: 500px; opacity: 0.9;">A fast, reliable point of sale system built for supermarkets, wholesale, and retail shops. Multi-currency, offline-first, with M-Pesa integration and AI-powered insights.</p>
+    <div class="meta">
+        <p>Last updated: <strong>May 2026</strong></p>
+        <p>Applicable to: Web, Desktop, and Mobile platforms</p>
+    </div>
+</div>
+
+<!-- ==================== DEVELOPERS INFO ==================== -->
+<div class="page">
+    <h2 style="border-bottom:2px solid var(--primary); padding-bottom:10px;">Development Team</h2>
+
+    <div class="developer-card">
+        <div class="avatar">DH</div>
+        <div class="info">
+            <h3>Davix HDM</h3>
+            <p><strong>Lead Developer & System Architect</strong></p>
+            <p>Email: davismcintyre5@gmail.com</p>
+            <p>Phone: +254 768 784 909</p>
+            <p>GitHub: <a href="https://github.com/Davismcintyre5" style="color:var(--primary)">github.com/Davismcintyre5</a></p>
+            <p>Website: <a href="https://hdmdevelopers.pxxl.click" style="color:var(--primary)">hdmdevelopers.pxxl.click</a></p>
+        </div>
+    </div>
+
+    <div class="developer-card">
+        <div class="avatar">CA</div>
+        <div class="info">
+            <h3>Caro Asha</h3>
+            <p><strong>UI/UX Designer & Admin Panel Developer</strong></p>
+            <p>Email: carolineashaesekon@gmail.com</p>
+            <p>GitHub: Caro Asha</p>
+        </div>
+    </div>
+
+    <div class="note">
+        <strong>Note:</strong> The Admin Panel is a separate application with restricted access. For security reasons, its URL is not publicly documented. Authorized administrators receive access credentials directly.
+    </div>
+
+    <div style="margin-top:40px;">
+        <h3>Repository & Project Links</h3>
+        <p><strong>Main Repository:</strong> <a href="https://github.com/Davismcintyre5" style="color:var(--primary)">GitHub - SmartPOS</a></p>
+        <p><strong>Web Client:</strong> <a href="https://smartpos.pxxl.click" style="color:var(--primary)">smartpos.pxxl.click</a></p>
+        <p><strong>API Server:</strong> <a href="https://smartpos-server.pxxl.click" style="color:var(--primary)">smartpos-server.pxxl.click</a></p>
+        <p><strong>Developer Website:</strong> <a href="https://hdmdevelopers.pxxl.click" style="color:var(--primary)">hdmdevelopers.pxxl.click</a></p>
+    </div>
+</div>
+
+<!-- ==================== TABLE OF CONTENTS ==================== -->
+<div class="page">
+    <h2 style="border-bottom:2px solid var(--primary); padding-bottom:10px;">Table of Contents</h2>
+
+    <ul class="toc">
+        <li><a href="#acknowledgments">Acknowledgments</a></li>
+        <li><a href="#dedication">Dedication</a></li>
+        <li><a href="#license">License</a></li>
+        <li><strong><a href="#user-guide">USER DOCUMENTATION</a></strong></li>
+        <li><a href="#getting-started">1. Getting Started</a></li>
+        <li class="sub"><a href="#registration">1.1 Registration & Activation</a></li>
+        <li class="sub"><a href="#first-login">1.2 First Login</a></li>
+        <li class="sub"><a href="#dashboard-overview">1.3 Dashboard Overview</a></li>
+        <li><a href="#pos">2. POS (Point of Sale)</a></li>
+        <li class="sub"><a href="#processing-sale">2.1 Processing a Sale</a></li>
+        <li class="sub"><a href="#barcode-scanning">2.2 Barcode Scanning</a></li>
+        <li class="sub"><a href="#payment-methods">2.3 Payment Methods</a></li>
+        <li class="sub"><a href="#hold-resume">2.4 Hold & Resume Sales</a></li>
+        <li class="sub"><a href="#discounts-vat">2.5 Discounts, VAT & Loyalty</a></li>
+        <li class="sub"><a href="#printing-receipts">2.6 Printing Receipts</a></li>
+        <li><a href="#products">3. Product Management</a></li>
+        <li class="sub"><a href="#adding-products">3.1 Adding Products</a></li>
+        <li class="sub"><a href="#categories">3.2 Categories & Barcodes</a></li>
+        <li class="sub"><a href="#restocking">3.3 Restocking</a></li>
+        <li class="sub"><a href="#stock-indicators">3.4 Stock Level Indicators</a></li>
+        <li><a href="#customers">4. Customer Management</a></li>
+        <li class="sub"><a href="#loyalty">4.1 Loyalty Program</a></li>
+        <li class="sub"><a href="#printing-cards">4.2 Printing Loyalty Cards</a></li>
+        <li><a href="#sales-reports">5. Sales & Reports</a></li>
+        <li class="sub"><a href="#viewing-sales">5.1 Viewing Sales History</a></li>
+        <li class="sub"><a href="#refunds">5.2 Processing Refunds</a></li>
+        <li class="sub"><a href="#reports">5.3 Reports</a></li>
+        <li><a href="#settings">6. Settings</a></li>
+        <li class="sub"><a href="#profile-settings">6.1 Profile & Business Settings</a></li>
+        <li class="sub"><a href="#currency-settings">6.2 Currency Settings</a></li>
+        <li class="sub"><a href="#receipt-settings">6.3 Receipt Customization</a></li>
+        <li class="sub"><a href="#tax-discount-settings">6.4 Tax & Discount Configuration</a></li>
+        <li class="sub"><a href="#loyalty-settings">6.5 Loyalty Program Setup</a></li>
+        <li class="sub"><a href="#ai-settings">6.6 AI Settings & API Keys</a></li>
+        <li class="sub"><a href="#staff-management">6.7 Staff Management</a></li>
+        <li><a href="#mobile-app">7. Mobile App</a></li>
+        <li><a href="#desktop-app">8. Desktop App</a></li>
+        <li><strong><a href="#system-doc">SYSTEM DOCUMENTATION</a></strong></li>
+        <li><a href="#architecture">9. Architecture</a></li>
+        <li><a href="#server-setup">10. Server Setup</a></li>
+        <li><a href="#database">11. Database Schema</a></li>
+        <li><a href="#api-reference">12. API Reference</a></li>
+        <li><a href="#web-client">13. Web Client</a></li>
+        <li><a href="#desktop-app-tech">14. Desktop App Architecture</a></li>
+        <li><a href="#mobile-app-tech">15. Mobile App Architecture</a></li>
+        <li><a href="#deployment">16. Deployment Guide</a></li>
+        <li><a href="#ai-integration">17. AI Integration</a></li>
+        <li><a href="#security">18. Security</a></li>
+    </ul>
+</div>
+
+<!-- ==================== ACKNOWLEDGMENTS ==================== -->
+<div class="page" id="acknowledgments">
+    <h2>Acknowledgments</h2>
+    <p>We would like to express our sincere gratitude to everyone who contributed to the development and success of SmartPOS.</p>
+    <ul>
+        <li><strong>The Development Team</strong> — for countless hours of coding, testing, and refining every feature.</li>
+        <li><strong>Early Adopters & Beta Testers</strong> — whose feedback shaped the user experience and reliability.</li>
+        <li><strong>Open Source Community</strong> — for the libraries and tools that power SmartPOS: React, Node.js, Express, MongoDB, Electron, React Native, and many more.</li>
+        <li><strong>HDM AI</strong> — for providing the artificial intelligence capabilities that enhance business insights.</li>
+        <li><strong>Safaricom</strong> — for M-Pesa API integration that enables seamless mobile payments.</li>
+        <li><strong>Our Families & Friends</strong> — for their patience and support throughout this journey.</li>
+    </ul>
+</div>
+
+<!-- ==================== DEDICATION ==================== -->
+<div class="page" id="dedication">
+    <h2>Dedication</h2>
+    <p style="font-size:18px; line-height:2; text-align:center; margin-top:80px; font-style:italic; color:var(--gray-600);">
+        This project is dedicated to every small and medium business owner across Africa<br>
+        who works tirelessly to serve their communities.<br><br>
+        May this tool make your day a little easier,<br>
+        your transactions a little faster,<br>
+        and your dreams a little closer.<br><br>
+        <strong>Built in Kenya, for Africa, and for the world.</strong>
+    </p>
+</div>
+
+<!-- ==================== LICENSE ==================== -->
+<div class="page" id="license">
+    <h2>License</h2>
+    <p><strong>SmartPOS</strong> is proprietary software. All rights reserved.</p>
+    <p>This software is licensed, not sold. The use of SmartPOS is subject to the terms and conditions agreed upon during registration and subscription.</p>
+    <ul>
+        <li><strong>Free Trial:</strong> 14-day full access for evaluation.</li>
+        <li><strong>Monthly Subscription:</strong> Renewable every month.</li>
+        <li><strong>Yearly Subscription:</strong> Annual commitment with discount.</li>
+        <li><strong>Permanent License:</strong> One-time payment for lifetime use.</li>
+    </ul>
+    <p>Unauthorized copying, distribution, or modification of this software is strictly prohibited. For licensing inquiries, contact <strong>davismcintyre5@gmail.com</strong>.</p>
+    <p style="margin-top:30px;"><strong>Third-Party Lwficenses:</strong> SmartPOS incorporates open-source libraries. Their respective licenses can be found in the source code repository.</p>
+</div>
+
+
+
+<!-- ==================== USER DOCUMENTATION ==================== -->
+<div class="page" id="user-guide">
+    <h2>USER DOCUMENTATION</h2>
+    <p style="font-size:18px; color:var(--gray-500);">Everything you need to know to use SmartPOS effectively.</p>
+</div>
+
+<!-- ==================== 1. GETTING STARTED ==================== -->
+<div class="page" id="getting-started">
+    <h2>1. Getting Started</h2>
+
+    <h3 id="registration">1.1 Registration & Activation</h3>
+    <ol>
+        <li>Visit <strong>smartpos.pxxl.click</strong> and click <strong>Get Started</strong>.</li>
+        <li>Choose a plan: Free Trial, Monthly, Yearly, or Permanent.</li>
+        <li>Fill in your business details: Business Name, Owner Name, Phone, Email, and Password.</li>
+        <li>Agree to the Terms and Conditions and Privacy Policy.</li>
+        <li>Click <strong>Start Free Trial</strong> (or <strong>Continue to Payment</strong> for paid plans).</li>
+        <li>For free trials, your license key is displayed immediately. <strong>Copy and save it securely</strong> — you cannot recover it later.</li>
+        <li>For paid plans, complete payment via M-Pesa (Send Money, Till Number, or Paybill), Stripe, or PayPal. An admin will approve your payment, and you will receive your license key via email.</li>
+    </ol>
+
+    <div class="warning">
+        <strong>Important:</strong> Keep your license key safe. It is required for device activation and cannot be retrieved if lost.
+
+    </div>
+
+    <h3 id="first-login">1.2 First Login</h3>
+    <ol>
+        <li>Go to <strong>smartpos.pxxl.click/login</strong>.</li>
+        <li>Enter your registered email and password.</li>
+        <li>If your device is not yet activated, you will be redirected to the Activation page.</li>
+        <li>Enter your license key to activate the device.</li>
+        <li>After activation, log in again — you will be taken to the Dashboard.</li>
+    </ol>
+
+    <h3 id="dashboard-overview">1.3 Dashboard Overview</h3>
+    <p>The Dashboard gives you a quick snapshot of your business:</p>
+    <ul>
+        <li><strong>Stats Cards:</strong> Today's Revenue, Transactions, Total Products, Total Customers.</li>
+        <li><strong>Quick Actions:</strong> New Sale, Add Product, Add Customer, View Reports.</li>
+        <li><strong>Setup Checklist:</strong> Track your progress in setting up the system.</li>
+        <li><strong>Quick Scan:</strong> Use a barcode scanner to quickly jump to POS with a product.</li>
+    </ul>
+</div>
+
+<!-- ==================== 2. POS ==================== -->
+<div class="page" id="pos">
+    <h2>2. POS (Point of Sale)</h2>
+
+    <h3 id="processing-sale">2.1 Processing a Sale</h3>
+    <ol>
+        <li>Navigate to <strong>POS</strong> from the sidebar.</li>
+        <li><strong>Scan a barcode</strong> using a USB scanner, or click <strong>Scan Barcode</strong> to use the camera (on desktop/mobile).</li>
+        <li>Alternatively, type a product name in the search bar and click the product card to add it to the cart.</li>
+        <li>Adjust quantities using the <strong>+/-</strong> buttons in the cart.</li>
+        <li>Optionally, enter a <strong>Customer Name</strong> and <strong>Loyalty Card Number</strong> (if loyalty program is enabled).</li>
+        <li>Review the totals: Subtotal, any automatic discounts, VAT, and the final Total.</li>
+        <li>Click <strong>Process Payment</strong>.</li>
+    </ol>
+
+    <h3 id="barcode-scanning">2.2 Barcode Scanning</h3>
+    <ul>
+        <li><strong>USB Scanner:</strong> Plug and play — just scan a barcode, and the product is added to the cart instantly.</li>
+        <li><strong>Camera Scanner:</strong> Click the camera icon to activate your device's camera. Hold the barcode in front of the camera. A beep sound confirms the scan.</li>
+    </ul>
+
+    <h3 id="payment-methods">2.3 Payment Methods</h3>
+    <p>Click <strong>Process Payment</strong> and choose:</p>
+    <ul>
+        <li><strong>Cash:</strong> Enter the amount received from the customer. The change is calculated automatically.</li>
+        <li><strong>M-Pesa:</strong> Record an M-Pesa payment (no STK push in POS — this is for manual recording).</li>
+        <li><strong>Card:</strong> Record a card payment.</li>
+    </ul>
+
+    <h3 id="hold-resume">2.4 Hold & Resume Sales</h3>
+    <ul>
+        <li>Click <strong>Hold</strong> to save the current cart for later. The sale is stored in <strong>Held Sales</strong>.</li>
+        <li>To resume, go to <strong>Held Sales</strong> in the sidebar, find the sale, and click <strong>Resume</strong>. The cart is restored.</li>
+    </ul>
+
+    <h3 id="discounts-vat">2.5 Discounts, VAT & Loyalty</h3>
+    <ul>
+        <li><strong>Discounts:</strong> Configured in Settings → Tax & Discount. Global discounts apply to all products; specific discounts apply to selected products.</li>
+        <li><strong>VAT:</strong> If enabled, the configured VAT rate is applied automatically.</li>
+        <li><strong>Loyalty:</strong> Enter a loyalty card number to earn points. Points are calculated as <em>Total ÷ Points Per Amount</em> (configured in Settings).</li>
+    </ul>
+
+    <h3 id="printing-receipts">2.6 Printing Receipts</h3>
+    <p>After a successful sale, a receipt preview appears. Click <strong>Print</strong> to print the receipt using your configured printer. The receipt includes your business header, items, discounts, VAT, total, payment method, and a thank-you footer.</p>
+</div>
+
+<!-- ==================== 3. PRODUCTS ==================== -->
+<div class="page" id="products">
+    <h2>3. Product Management</h2>
+
+    <h3 id="adding-products">3.1 Adding Products</h3>
+    <ol>
+        <li>Go to <strong>Products</strong> and click <strong>Add Product</strong>.</li>
+        <li>Fill in the product details:
+            <ul>
+                <li>Name (required)</li>
+                <li>Barcode (scan or type)</li>
+                <li>Selling Price (required)</li>
+                <li>Cost Price (optional)</li>
+                <li>Stock Quantity</li>
+                <li>Category — start typing to see existing categories or create a new one.</li>
+            </ul>
+        </li>
+        <li>Click <strong>Create Product</strong>.</li>
+    </ol>
+
+    <h3 id="categories">3.2 Categories & Barcodes</h3>
+    <ul>
+        <li><strong>Categories:</strong> View and manage categories in the <strong>Categories</strong> tab under Products. Rename categories by clicking the edit icon.</li>
+        <li><strong>Barcodes:</strong> You can scan barcodes directly on the Add Product form using the camera button.</li>
+    </ul>
+
+    <h3 id="restocking">3.3 Restocking</h3>
+    <ol>
+        <li>Go to the <strong>Restock</strong> tab under Products.</li>
+        <li>Search for the product you want to restock.</li>
+        <li>Enter the quantity to add and optionally a new selling price.</li>
+        <li>Click <strong>Restock</strong>.</li>
+    </ol>
+
+    <h3 id="stock-indicators">3.4 Stock Level Indicators</h3>
+    <p>Stock levels are color-coded:</p>
+    <ul>
+        <li><span style="color:#22c55e;font-weight:700;">Green</span> — Adequate stock</li>
+        <li><span style="color:#f59e0b;font-weight:700;">Yellow/Amber</span> — Low stock (at or below threshold)</li>
+        <li><span style="color:#ef4444;font-weight:700;">Red</span> — Out of stock</li>
+    </ul>
+</div>
+
+<!-- ==================== 4. CUSTOMERS ==================== -->
+<div class="page" id="customers">
+    <h2>4. Customer Management</h2>
+
+    <h3 id="loyalty">4.1 Loyalty Program</h3>
+    <p>The loyalty program rewards customers with points for every purchase. To enable it:</p>
+    <ol>
+        <li>Go to <strong>Settings → Tax & Discount</strong>.</li>
+        <li>Toggle <strong>Enable Loyalty Points</strong> ON.</li>
+        <li>Set the <strong>Points per Amount</strong> (e.g., 1 point per KSh 100 spent).</li>
+        <li>Customize the <strong>Points Label</strong> (e.g., "Loyalty Points").</li>
+    </ol>
+    <p>During a sale, enter the customer's <strong>Loyalty Card Number</strong> in the POS. Points are added automatically after payment.</p>
+
+    <h3 id="printing-cards">4.2 Printing Loyalty Cards</h3>
+    <ol>
+        <li>Go to <strong>Customers</strong>.</li>
+        <li>Find the customer and click the <strong>Print</strong> icon.</li>
+        <li>A printable loyalty card is generated with the business name, customer name, card number, join date, and email.</li>
+    </ol>
+</div>
+
+<!-- ==================== 5. SALES & REPORTS ==================== -->
+<div class="page" id="sales-reports">
+    <h2>5. Sales & Reports</h2>
+
+    <h3 id="viewing-sales">5.1 Viewing Sales History</h3>
+    <p>Go to <strong>Sales</strong> to see all completed transactions. You can:</p>
+    <ul>
+        <li>Search by receipt number or customer name.</li>
+        <li>View receipt details by clicking the eye icon.</li>
+        <li>Print a receipt from any past sale.</li>
+    </ul>
+
+    <h3 id="refunds">5.2 Processing Refunds</h3>
+    <ol>
+        <li>In the Sales page, find the completed sale.</li>
+        <li>Click the <strong>Refund</strong> icon.</li>
+        <li>Confirm the refund. The stock is automatically restored.</li>
+    </ol>
+
+    <h3 id="reports">5.3 Reports</h3>
+    <p>The <strong>Reports</strong> page has five tabs:</p>
+    <ul>
+        <li><strong>Overview:</strong> Sales stats, payment method breakdown, inventory summary.</li>
+        <li><strong>General:</strong> Total revenue, inventory value, payment breakdown, VAT, discounts.</li>
+        <li><strong>Inventory:</strong> All products with stock levels and values.</li>
+        <li><strong>Transactions:</strong> Filterable list of all sales.</li>
+        <li><strong>Customers:</strong> Customer list with total spent, visits, and loyalty points.</li>
+    </ul>
+    <p>Every report tab has a <strong>Print</strong> button for hard copies.</p>
+</div>
+
+<!-- ==================== 6. SETTINGS ==================== -->
+<div class="page" id="settings">
+    <h2>6. Settings</h2>
+
+    <h3 id="profile-settings">6.1 Profile & Business Settings</h3>
+    <ul>
+        <li><strong>Profile:</strong> Update your name and change your password. Email is read-only for staff.</li>
+        <li><strong>Business:</strong> Update your business name, owner name, contact email, phone, and address.</li>
+    </ul>
+
+    <h3 id="currency-settings">6.2 Currency Settings</h3>
+    <p>Choose your business currency from 11 supported currencies (KES, USD, EUR, GBP, UGX, TZS, RWF, BIF, ZAR, NGN, GHS). All prices will display the chosen currency symbol. Note: This changes the symbol only; it does not convert existing prices.</p>
+
+    <h3 id="receipt-settings">6.3 Receipt Customization</h3>
+    <p>Customize the header (business name and address) and footer (thank-you message) that appear on printed receipts.</p>
+
+    <h3 id="tax-discount-settings">6.4 Tax & Discount Configuration</h3>
+    <ul>
+        <li><strong>VAT:</strong> Enable/disable and set the VAT rate (e.g., 16%).</li>
+        <li><strong>Global Discount:</strong> A percentage discount applied to all products without a specific discount.</li>
+        <li><strong>Specific Discounts:</strong> Create discounts for selected products only. Types include Fixed Amount, Percentage, Buy One Get One Free, and Buy X Get Y Free.</li>
+    </ul>
+
+    <h3 id="loyalty-settings">6.5 Loyalty Program Setup</h3>
+    <p>Enable loyalty points, set the points-per-amount ratio, and customize the label. This controls the loyalty input in POS.</p>
+
+    <h3 id="ai-settings">6.6 AI Settings & API Keys</h3>
+    <ul>
+        <li><strong>AI Configuration:</strong> Choose to use the global HDM AI (provided by SmartPOS) or bring your own API key for DeepSeek, ChatGPT, Claude, or Gemini.</li>
+        <li><strong>API Keys:</strong> Generate and manage API keys for external integrations. Keys can be revoked at any time.</li>
+    </ul>
+
+    <h3 id="staff-management">6.7 Staff Management</h3>
+    <p>Add staff members with specific roles (Admin, Manager, Cashier) and assign granular permissions:</p>
+    <ul>
+        <li>Manage Products</li>
+        <li>Process Sales</li>
+        <li>Manage Customers</li>
+        <li>View Reports</li>
+        <li>Manage Staff</li>
+        <li>Process Refunds</li>
+    </ul>
+    <p>The owner (Super Admin) cannot be modified or deleted. Staff members only see sidebar items and settings tabs they have permission for.</p>
+</div>
+
+<!-- ==================== 7. MOBILE APP ==================== -->
+<div class="page" id="mobile-app">
+    <h2>7. Mobile App</h2>
+    <p>The SmartPOS mobile app is available for Android devices. It offers all the features of the web application, optimized for phone screens.</p>
+    <h3>Installation</h3>
+    <ol>
+        <li>Download the APK from the provided link (or install via Google Play when available).</li>
+        <li>Open the app and log in with your email and password.</li>
+        <li>The app works offline — sales are saved locally and synced when internet is available.</li>
+    </ol>
+    <h3>Key Mobile Features</h3>
+    <ul>
+        <li>Barcode scanning using the phone's camera.</li>
+        <li>Bluetooth thermal printer support for receipts.</li>
+        <li>Offline POS with automatic sync.</li>
+        <li>Biometric login (fingerprint/Face ID).</li>
+    </ul>
+</div>
+
+<!-- ==================== 8. DESKTOP APP ==================== -->
+<div class="page" id="desktop-app">
+    <h2>8. Desktop App</h2>
+    <p>The SmartPOS desktop application is built with Electron and provides an offline-first experience on Windows, macOS, and Linux.</p>
+    <h3>Installation</h3>
+    <ol>
+        <li>Download the installer for your platform from <strong>smartpos.pxxl.click</strong>.</li>
+        <li>Run the installer and follow the prompts.</li>
+        <li>Launch SmartPOS from the desktop shortcut.</li>
+    </ol>
+    <h3>Key Desktop Features</h3>
+    <ul>
+        <li><strong>Offline-First:</strong> All sales are saved to a local SQLite database and synced to the server when online.</li>
+        <li><strong>Auto-Update:</strong> The app checks for updates and installs them automatically.</li>
+        <li><strong>System Tray:</strong> Minimize to tray for quick access.</li>
+        <li><strong>Keyboard Shortcuts:</strong> F1=POS, F2=Products, F3=Sales, F5=Quick Scan, Esc=Close modal.</li>
+        <li><strong>Direct Printing:</strong> Supports ESC/POS thermal printers via USB/Bluetooth.</li>
+    </ul>
+</div>
+
+<!-- ==================== FOOTER ==================== -->
+<div class="page">
+    <p class="footer-note">SmartPOS Documentation — Version 1.0 — May 2026 — © HDM Developers</p>
+</div>
+
+</body>
+</html>

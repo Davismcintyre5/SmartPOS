@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartPOS — Business Brochure</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #e2e8f0;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; padding: 20px;
+        }
+        .a4-page {
+            width: 210mm; min-height: 297mm;
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            color: white; padding: 12mm 14mm;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            position: relative; overflow: hidden;
+        }
+        @media print {
+            body { background: white; padding: 0; }
+            .a4-page { box-shadow: none; width: 100%; min-height: auto; }
+        }
+        .a4-page::before {
+            content: ''; position: absolute; top: -100px; right: -100px;
+            width: 350px; height: 350px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .a4-page::after {
+            content: ''; position: absolute; bottom: -50px; left: -50px;
+            width: 200px; height: 200px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .header {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 18px; position: relative; z-index: 1;
+        }
+        .logo {
+            width: 52px; height: 52px; flex-shrink: 0;
+        }
+        .header-info h1 {
+            font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1;
+        }
+        .header-info .tagline {
+            font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;
+        }
+        .header-info .powered {
+            font-size: 9px; color: #64748b; margin-top: 3px;
+        }
+        .content {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            position: relative; z-index: 1;
+        }
+        .full-width { grid-column: 1 / -1; }
+        .card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px; padding: 12px;
+        }
+        .card h3 {
+            font-size: 12px; font-weight: 700; color: #3b82f6;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+        }
+        .card h3 .icon {
+            width: 24px; height: 24px; background: rgba(37,99,235,0.15);
+            border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .card h3 .icon svg { width: 12px; height: 12px; color: #3b82f6; }
+        .features-list {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 5px 10px;
+        }
+        .features-list .feature {
+            display: flex; align-items: flex-start; gap: 5px;
+            font-size: 9px; color: #cbd5e1; line-height: 1.4;
+        }
+        .features-list .feature .check {
+            width: 14px; height: 14px; background: rgba(34,197,94,0.15);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin-top: 1px;
+        }
+        .features-list .feature .check svg { width: 8px; height: 8px; color: #22c55e; }
+        .pricing-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+        }
+        .plan-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px; padding: 10px 8px; text-align: center;
+        }
+        .plan-card.featured {
+            background: rgba(37,99,235,0.1); border-color: rgba(37,99,235,0.3); position: relative;
+        }
+        .plan-card.featured::before {
+            content: 'POPULAR'; position: absolute; top: -7px; left: 50%;
+            transform: translateX(-50%); font-size: 6px; font-weight: 700;
+            background: #2563eb; color: white; padding: 2px 8px;
+            border-radius: 8px; letter-spacing: 1px;
+        }
+        .plan-card .plan-name { font-size: 10px; font-weight: 700; margin-bottom: 3px; }
+        .plan-card .plan-price { font-size: 18px; font-weight: 800; color: #3b82f6; }
+        .plan-card .plan-price small { font-size: 8px; font-weight: 400; color: #94a3b8; }
+        .plan-card .plan-desc { font-size: 7px; color: #64748b; margin-top: 3px; }
+
+        /* Why Choose Us */
+        .why-list { display: flex; flex-direction: column; gap: 6px; }
+        .why-item { display: flex; align-items: flex-start; gap: 8px; }
+        .why-item .why-num {
+            width: 20px; height: 20px; background: rgba(37,99,235,0.2);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 9px; font-weight: 700; color: #3b82f6; flex-shrink: 0;
+        }
+        .why-item .why-text { font-size: 9px; color: #cbd5e1; line-height: 1.3; }
+        .why-item .why-text strong { color: white; }
+
+        .contact-row {
+            display: flex; flex-wrap: wrap; gap: 6px 16px;
+            font-size: 9px; color: #cbd5e1;
+        }
+        .contact-row span { display: flex; align-items: center; gap: 3px; }
+        .footer {
+            margin-top: 14px; padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 8px; color: #475569; position: relative; z-index: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="a4-page">
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="logo">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" width="52" height="52">
+                <circle cx="256" cy="256" r="248" fill="#2563eb"/>
+                <circle cx="256" cy="256" r="248" stroke="#1d4ed8" stroke-width="8"/>
+                <rect x="120" y="160" width="272" height="200" rx="24" fill="white"/>
+                <rect x="144" y="176" width="224" height="100" rx="12" fill="#eff6ff"/>
+                <rect x="168" y="196" width="40" height="4" rx="2" fill="#2563eb"/>
+                <rect x="168" y="208" width="30" height="4" rx="2" fill="#2563eb"/>
+                <rect x="168" y="220" width="50" height="4" rx="2" fill="#2563eb"/>
+                <rect x="168" y="232" width="35" height="4" rx="2" fill="#2563eb"/>
+                <rect x="168" y="244" width="45" height="4" rx="2" fill="#2563eb"/>
+                <rect x="168" y="256" width="25" height="4" rx="2" fill="#2563eb"/>
+                <rect x="280" y="196" width="60" height="60" rx="8" fill="#dbeafe"/>
+                <path d="M295 226L310 211L325 226" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="296" cy="214" r="3" fill="#2563eb"/>
+                <circle cx="324" cy="214" r="3" fill="#2563eb"/>
+                <rect x="144" y="292" width="224" height="48" rx="8" fill="#f8fafc"/>
+                <rect x="156" y="300" width="48" height="12" rx="4" fill="#dbeafe"/>
+                <rect x="212" y="300" width="48" height="12" rx="4" fill="#dbeafe"/>
+                <rect x="268" y="300" width="48" height="12" rx="4" fill="#dbeafe"/>
+                <rect x="324" y="300" width="32" height="12" rx="4" fill="#bfdbfe"/>
+                <rect x="156" y="320" width="48" height="12" rx="4" fill="#dbeafe"/>
+                <rect x="212" y="320" width="48" height="12" rx="4" fill="#dbeafe"/>
+                <rect x="268" y="320" width="48" height="12" rx="4" fill="#dbeafe"/>
+                <rect x="324" y="320" width="32" height="12" rx="4" fill="#60a5fa"/>
+                <line x1="144" y1="226" x2="368" y2="226" stroke="#ef4444" stroke-width="2" stroke-dasharray="8 4" opacity="0.8"/>
+                <circle cx="368" cy="226" r="4" fill="#ef4444" opacity="0.8"/>
+                <path d="M120 144L132 168L124 168L138 196" fill="#fbbf24" stroke="#f59e0b" stroke-width="2" stroke-linejoin="round"/>
+                <circle cx="100" cy="120" r="8" fill="#93c5fd" opacity="0.6"/>
+                <circle cx="420" cy="100" r="6" fill="#93c5fd" opacity="0.4"/>
+                <circle cx="440" cy="380" r="10" fill="#93c5fd" opacity="0.5"/>
+            </svg>
+        </div>
+        <div class="header-info">
+            <h1>SmartPOS</h1>
+            <div class="tagline">Point of Sale System</div>
+            <div class="powered">Built in Kenya, for Africa — by HDM Developers</div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+        <!-- Features -->
+        <div class="card">
+            <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>Key Features</h3>
+            <div class="features-list">
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Fast POS with barcode scanning</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>AI-powered business insights</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>M-Pesa, Stripe & PayPal integrated</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Multi-currency (11 currencies)</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Offline-first mode</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Staff roles & permissions</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Customer loyalty program</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Receipt customization & printing</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Tax, VAT & discount management</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Comprehensive reports & analytics</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Desktop + Mobile + Web apps</div>
+                <div class="feature"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Cloud backups & data isolation</div>
+            </div>
+        </div>
+
+        <!-- Why Choose SmartPOS (replaces Technology Stack) -->
+        <div class="card">
+            <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>Why Choose SmartPOS</h3>
+            <div class="why-list">
+                <div class="why-item">
+                    <span class="why-num">1</span>
+                    <span class="why-text"><strong>Built for Africa</strong> — Designed in Kenya with M-Pesa, multi-currency, and offline-first. No other POS understands local business like we do.</span>
+                </div>
+                <div class="why-item">
+                    <span class="why-num">2</span>
+                    <span class="why-text"><strong>3-Second Checkout</strong> — Lightning-fast barcode scanning means shorter queues and happier customers.</span>
+                </div>
+                <div class="why-item">
+                    <span class="why-num">3</span>
+                    <span class="why-text"><strong>Works Without Internet</strong> — Keep selling even when the network is down. All data syncs automatically when you're back online.</span>
+                </div>
+                <div class="why-item">
+                    <span class="why-num">4</span>
+                    <span class="why-text"><strong>AI That Knows Your Business</strong> — Get real insights from your own sales data. Not generic advice — actual recommendations based on your numbers.</span>
+                </div>
+                <div class="why-item">
+                    <span class="why-num">5</span>
+                    <span class="why-text"><strong>Free to Start</strong> — 14-day full-featured trial. No credit card required. Upgrade only when you're ready.</span>
+                </div>
+                <div class="why-item">
+                    <span class="why-num">6</span>
+                    <span class="why-text"><strong>Your Data is Yours</strong> — Complete data isolation. No other business can see your information. Automatic cloud backups included.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pricing -->
+        <div class="card full-width">
+            <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>Pricing Plans</h3>
+            <div class="pricing-grid">
+                <div class="plan-card"><div class="plan-name">Free Trial</div><div class="plan-price">KES 0</div><div class="plan-desc">14 days full access</div></div>
+                <div class="plan-card featured"><div class="plan-name">Monthly</div><div class="plan-price">KES 500<small>/mo</small></div><div class="plan-desc">Full access</div></div>
+                <div class="plan-card"><div class="plan-name">Yearly</div><div class="plan-price">KES 5,000<small>/yr</small></div><div class="plan-desc">Save 17%</div></div>
+                <div class="plan-card"><div class="plan-name">Permanent</div><div class="plan-price">KES 12,000</div><div class="plan-desc">Lifetime</div></div>
+            </div>
+        </div>
+
+        <!-- Contact -->
+        <div class="card full-width">
+            <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>Contact & Links</h3>
+            <div class="contact-row">
+                <span>📧 davismcintyre5@gmail.com</span>
+                <span>📱 +254 768 784 909</span>
+                <span>🌐 smartpos.pxxl.click</span>
+                <span>🌐 hdmdevelopers.pxxl.click</span>
+                <span>📧 carolineashaesekon@gmail.com</span>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <span>© 2026 HDM Developers. All rights reserved.</span>
+        <span>SmartPOS v1.0 — Built in Kenya, for Africa</span>
+    </div>
+
+</div>
+
+</body>
+</html>

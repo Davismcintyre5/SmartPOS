@@ -1,6 +1,6 @@
-// Header
+// components/layout/Header.jsx
 import { useState, useRef, useEffect } from "react";
-import { Menu, Moon, Sun, LogOut, User, ChevronDown } from "lucide-react";
+import { Menu, Moon, Sun, LogOut, User, ChevronDown, Clock } from "lucide-react";
 import { useSidebar } from "../../hooks/useSidebar";
 import { useTheme } from "../../hooks/useTheme";
 import { useAuth } from "../../hooks/useAuth";
@@ -40,13 +40,27 @@ export const Header = () => {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const handleClick = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setProfileOpen(false); };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  const formatTime = (date) => {
+    return date.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+  };
+
+  const formatDate = (date) => {
+    return date.toLocaleDateString("en-KE", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  };
 
   return (
     <header className="sticky top-0 z-20 h-16 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 lg:px-6">
@@ -64,7 +78,16 @@ export const Header = () => {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
+        {/* Date and Time */}
+        <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 pr-4">
+          <Clock className="w-4 h-4" />
+          <div className="text-right">
+            <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{formatTime(currentTime)}</p>
+            <p className="text-[10px]">{formatDate(currentTime)}</p>
+          </div>
+        </div>
+
         <button onClick={toggleDarkMode} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
           {darkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-gray-600" />}
         </button>
