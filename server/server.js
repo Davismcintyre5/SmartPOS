@@ -1,3 +1,4 @@
+// server.js
 require("./dnsSet");
 
 const express = require("express");
@@ -13,8 +14,19 @@ const { configureCloudinary } = require("./config/cloudinary");
 const errorHandler = require("./middleware/common/errorHandler");
 const requestLogger = require("./middleware/common/requestLogger");
 const routes = require("./routes/index");
+const { startKeepAlive, stopKeepAlive } = require("./keepAlive");
+const { startTrialReminderCron } = require("./cron/trialReminders");
 
 const app = express();
+
+// ============================================================
+// TRUST PROXY - Required for rate limiting behind Cloudflare/Render
+// ============================================================
+// This allows express-rate-limit to correctly identify client IPs
+// when the app is running behind a proxy (Cloudflare, Render, Nginx)
+app.set("trust proxy", 1); // Trust first proxy (e.g., Render/Cloudflare)
+// For Render.com and Cloudflare, "trust proxy: 1" is sufficient
+// If behind multiple proxies, use: app.set("trust proxy", true);
 
 // Ensure required directories exist
 ["logs", "uploads", "backups/system", "backups/clients"].forEach((dir) => {
@@ -103,18 +115,38 @@ const start = async () => {
       console.log(`  │  Stripe      : ${(env.STRIPE_SECRET_KEY ? "Configured" : "Not set").padEnd(27)}│`);
       console.log(`  │  M-Pesa      : ${(env.MPESA_CONSUMER_KEY ? "Configured" : "Not set").padEnd(27)}│`);
       console.log(`  │  PayPal      : ${(env.PAYPAL_CLIENT_ID ? "Configured" : "Not set").padEnd(27)}│`);
-      console.log(`  │  Brevo       : ${(env.BREVO_API_KEY ? "Configured" : "Not set").padEnd(27)}│`);
+      console.log(`  │  HDM Bridge  : ${(env.HDM_API_KEY ? "Configured" : "Not set").padEnd(27)}│`);
       console.log(`  │  Cloudinary  : ${(env.CLOUDINARY_CLOUD_NAME ? "Configured" : "Not set").padEnd(27)}│`);
       console.log("  └─────────────────────────────────────────┘");
       console.log("");
+      console.log("  🔐 Trust proxy enabled (for rate limiting behind Cloudflare/Render)");
+      console.log("");
 
       logger.info(`Server started on port ${env.PORT} in ${env.NODE_ENV} mode`);
+
+      // ============================================================
+      // START KEEP-ALIVE (Prevent Render free tier sleep)
+      // ============================================================
+      startKeepAlive();
+
+      // ============================================================
+      // START TRIAL REMINDER CRON JOB (Only in production)
+      // ============================================================
+      if (env.NODE_ENV === "production") {
+        startTrialReminderCron();
+        logger.info("Trial reminder cron job started");
+      } else {
+        logger.info("Trial reminder cron job disabled (development mode)");
+      }
     });
 
     // Graceful shutdown
     const shutdown = async (signal) => {
       console.log(`\n  ⚠️  ${signal} received. Shutting down...`);
       logger.warn(`${signal} received — shutting down gracefully`);
+
+      // Stop keep-alive pings
+      stopKeepAlive();
 
       server.close(async () => {
         console.log("  🔌 HTTP server closed");

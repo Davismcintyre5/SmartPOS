@@ -1,5 +1,5 @@
 // src/components/BarcodeScanner.js
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Audio } from "expo-av";
@@ -9,20 +9,38 @@ export default function BarcodeScanner({ onScan, enabled = true }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
   const scannedRef = useRef(false);
+  const soundRef = useRef(null);
+
+  // Load sound on component mount
+  useEffect(() => {
+    const loadSound = async () => {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          require("../../assets/scan-beep.mp3")
+        );
+        soundRef.current = sound;
+      } catch (err) {
+        console.log("Failed to load sound:", err.message);
+      }
+    };
+    
+    loadSound();
+
+    // Cleanup on unmount
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   const playBeep = async () => {
     try {
-      const { sound } = await Audio.Sound.createAsync(
-        require("../../assets/scan-beep.mp3"),
-        { shouldPlay: true }
-      );
-      await sound.playAsync();
-      // Unload after playing
-      setTimeout(() => {
-        sound.unloadAsync();
-      }, 1000);
+      if (soundRef.current) {
+        await soundRef.current.replayAsync();
+      }
     } catch (err) {
-      console.log("Beep error:", err.message);
+      console.log("Play sound error:", err.message);
     }
   };
 
@@ -58,30 +76,79 @@ export default function BarcodeScanner({ onScan, enabled = true }) {
         onBarcodeScanned={handleBarcodeScanned}
         barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "code128", "code39", "qr"] }}
         facing="back"
-      >
-        <View style={styles.overlay}>
-          <View style={styles.scanArea} />
-          <TouchableOpacity style={styles.closeButton} onPress={() => setScanning(false)}>
-            <MaterialCommunityIcons name="close" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.scanHint}>Point camera at barcode</Text>
-        </View>
-      </CameraView>
+      />
+      <View style={styles.overlay}>
+        <View style={styles.scanArea} />
+        <TouchableOpacity style={styles.closeButton} onPress={() => setScanning(false)}>
+          <MaterialCommunityIcons name="close" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.scanHint}>Point camera at barcode</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   scanButton: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    padding: 10, borderWidth: 1.5, borderColor: "#2563eb", borderRadius: 10,
-    gap: 8, marginBottom: 8, backgroundColor: "#1e293b",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: "#2563eb",
+    borderRadius: 10,
+    gap: 8,
+    marginBottom: 8,
+    backgroundColor: "white",
   },
-  scanButtonText: { color: "#3b82f6", fontWeight: "600", fontSize: 14 },
-  scannerContainer: { height: 280, borderRadius: 12, overflow: "hidden", marginBottom: 8 },
-  camera: { flex: 1 },
-  overlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.3)" },
-  scanArea: { width: 200, height: 120, borderWidth: 2, borderColor: "rgba(37,99,235,0.8)", borderRadius: 12 },
-  closeButton: { position: "absolute", top: 12, right: 12, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 20, padding: 8 },
-  scanHint: { color: "white", fontSize: 12, marginTop: 16, opacity: 0.8 },
+  scanButtonText: {
+    color: "#2563eb",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  scannerContainer: {
+    height: 280,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 8,
+    position: "relative",
+  },
+  camera: {
+    flex: 1,
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  scanArea: {
+    width: 200,
+    height: 120,
+    borderWidth: 2,
+    borderColor: "#2563eb",
+    borderRadius: 12,
+    backgroundColor: "transparent",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 20,
+    padding: 8,
+    zIndex: 10,
+  },
+  scanHint: {
+    color: "white",
+    fontSize: 12,
+    marginTop: 16,
+    opacity: 0.8,
+    position: "absolute",
+    bottom: 20,
+  },
 });

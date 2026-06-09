@@ -19,6 +19,9 @@ const userSchema = new mongoose.Schema(
     },
     isOwner: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
+    // NEW: Password reset fields
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   { timestamps: true }
 );

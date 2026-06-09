@@ -7,8 +7,9 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import api from "../api/axios";
 import { formatPrice } from "../utils/formatCurrency";
+import ScreenWrapper from "../components/layout/ScreenWrapper";
 
-const tabs = [
+const reportTabs = [
   { key: "overview", label: "Overview", icon: "chart-bar" },
   { key: "general", label: "General", icon: "file-document" },
   { key: "inventory", label: "Inventory", icon: "package-variant" },
@@ -71,114 +72,150 @@ export default function ReportsScreen() {
   const filteredCustomers = custSearch ? allCustomers.filter((c) => c.name?.toLowerCase().includes(custSearch.toLowerCase()) || c.phone?.includes(custSearch)) : allCustomers;
 
   return (
-    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-      <Text style={styles.title}>Reports</Text>
+    <ScreenWrapper scrollable={false}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Reports</Text>
 
-      {/* Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsRow}>
-        {tabs.map((t) => (
-          <TouchableOpacity key={t.key} onPress={() => setActiveTab(t.key)} style={[styles.tab, activeTab === t.key && styles.tabActive]}>
-            <MaterialCommunityIcons name={t.icon} size={14} color={activeTab === t.key ? "white" : "#888"} />
-            <Text style={[styles.tabText, activeTab === t.key && styles.tabTextActive]}>{t.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Period filter for overview */}
-      {activeTab === "overview" && (
-        <View style={styles.periodRow}>
-          {["today", "week", "month"].map((p) => (
-            <TouchableOpacity key={p} onPress={() => setPeriod(p)} style={[styles.periodBtn, period === p && styles.periodActive]}>
-              <Text style={[styles.periodText, period === p && styles.periodTextActive]}>{p}</Text>
+        {/* Tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsRow}>
+          {reportTabs.map((t) => (
+            <TouchableOpacity key={t.key} onPress={() => setActiveTab(t.key)} style={[styles.tab, activeTab === t.key && styles.tabActive]}>
+              <MaterialCommunityIcons name={t.icon} size={14} color={activeTab === t.key ? "white" : "#888"} />
+              <Text style={[styles.tabText, activeTab === t.key && styles.tabTextActive]}>{t.label}</Text>
             </TouchableOpacity>
           ))}
-        </View>
-      )}
+        </ScrollView>
 
-      {/* Overview */}
-      {activeTab === "overview" && (
-        <View>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(salesData?.totalSales || 0)}</Text><Text style={styles.statLabel}>Total Sales</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{salesData?.transactions || 0}</Text><Text style={styles.statLabel}>Transactions</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(salesData?.averageTransaction || 0)}</Text><Text style={styles.statLabel}>Avg Sale</Text></View>
+        {/* Period filter for overview */}
+        {activeTab === "overview" && (
+          <View style={styles.periodRow}>
+            {["today", "week", "month"].map((p) => (
+              <TouchableOpacity key={p} onPress={() => setPeriod(p)} style={[styles.periodBtn, period === p && styles.periodActive]}>
+                <Text style={[styles.periodText, period === p && styles.periodTextActive]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          {salesData?.paymentMethods?.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Payment Methods</Text>
-              {salesData.paymentMethods.map((pm) => (
-                <View key={pm._id} style={styles.pmRow}><Text style={styles.pmName}>{pm._id}</Text><Text style={styles.pmTotal}>{formatPrice(pm.total)}</Text></View>
-              ))}
-            </View>
-          )}
-        </View>
-      )}
+        )}
 
-      {/* General */}
-      {activeTab === "general" && (
-        <View>
-          <Text style={styles.sectionTitle}>{businessName} — General Report</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(totalRevenue)}</Text><Text style={styles.statLabel}>Revenue</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(inventoryValue)}</Text><Text style={styles.statLabel}>Inventory</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(cashSales)}</Text><Text style={styles.statLabel}>Cash</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(mpesaSales)}</Text><Text style={styles.statLabel}>M-Pesa</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(cardSales)}</Text><Text style={styles.statLabel}>Card</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(totalVat)}</Text><Text style={styles.statLabel}>VAT</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(totalDiscounts)}</Text><Text style={styles.statLabel}>Discounts</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{allCustomers.length}</Text><Text style={styles.statLabel}>Customers</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{allProducts.length}</Text><Text style={styles.statLabel}>Products</Text></View>
-          </View>
-        </View>
-      )}
-
-      {/* Inventory */}
-      {activeTab === "inventory" && (
-        <View>
-          <TextInput style={styles.searchInput} placeholder="Search products..." value={invSearch} onChangeText={setInvSearch} />
-          {filteredInventory.slice(0, 50).map((p) => (
-            <View key={p._id} style={styles.listRow}>
-              <View style={{ flex: 1 }}><Text style={styles.listName}>{p.name}</Text></View>
-              <Text style={[styles.listStock, p.stock <= 5 && { color: "#ef4444" }]}>{p.stock}</Text>
-              <Text style={styles.listPrice}>{formatPrice(p.price)}</Text>
-              <Text style={styles.listValue}>{formatPrice((p.price || 0) * (p.stock || 0))}</Text>
-            </View>
-          ))}
-          <View style={styles.totalRow}><Text style={styles.totalLabel}>Total Value</Text><Text style={styles.totalValue}>{formatPrice(inventoryValue)}</Text></View>
-        </View>
-      )}
-
-      {/* Transactions */}
-      {activeTab === "transactions" && (
-        <View>
-          <TextInput style={styles.searchInput} placeholder="Search receipt..." value={salesSearch} onChangeText={setSalesSearch} />
-          {filteredSales.slice(0, 50).map((s) => (
-            <View key={s._id} style={styles.listRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.listName}>{s.receiptNumber}</Text>
-                <Text style={styles.listSub}>{s.customerName || "Walk-in"}</Text>
+        {/* Overview */}
+        {activeTab === "overview" && (
+          <FlatList
+            data={[{ id: 1 }]}
+            keyExtractor={() => "overview"}
+            renderItem={() => (
+              <View>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(salesData?.totalSales || 0)}</Text><Text style={styles.statLabel}>Total Sales</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{salesData?.transactions || 0}</Text><Text style={styles.statLabel}>Transactions</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(salesData?.averageTransaction || 0)}</Text><Text style={styles.statLabel}>Avg Sale</Text></View>
+                </View>
+                {salesData?.paymentMethods?.length > 0 && (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Payment Methods</Text>
+                    {salesData.paymentMethods.map((pm) => (
+                      <View key={pm._id} style={styles.pmRow}><Text style={styles.pmName}>{pm._id}</Text><Text style={styles.pmTotal}>{formatPrice(pm.total)}</Text></View>
+                    ))}
+                  </View>
+                )}
               </View>
-              <Text style={styles.listPrice}>{formatPrice(s.total)}</Text>
-              <Text style={styles.listMethod}>{s.paymentMethod}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+            )}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          />
+        )}
 
-      {/* Customers */}
-      {activeTab === "customers" && (
-        <View>
-          <TextInput style={styles.searchInput} placeholder="Search customers..." value={custSearch} onChangeText={setCustSearch} />
-          {filteredCustomers.slice(0, 50).map((c) => (
-            <View key={c._id} style={styles.listRow}>
-              <View style={{ flex: 1 }}><Text style={styles.listName}>{c.name}</Text></View>
-              <Text style={styles.listPrice}>{formatPrice(c.totalSpent || 0)}</Text>
-              <Text style={[styles.listMethod, { color: "#d97706" }]}>{c.loyaltyPoints || 0} pts</Text>
-            </View>
-          ))}
-        </View>
-      )}
-    </ScrollView>
+        {/* General */}
+        {activeTab === "general" && (
+          <FlatList
+            data={[{ id: 1 }]}
+            keyExtractor={() => "general"}
+            renderItem={() => (
+              <View>
+                <Text style={styles.sectionTitle}>{businessName} — General Report</Text>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(totalRevenue)}</Text><Text style={styles.statLabel}>Revenue</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(inventoryValue)}</Text><Text style={styles.statLabel}>Inventory</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(cashSales)}</Text><Text style={styles.statLabel}>Cash</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(mpesaSales)}</Text><Text style={styles.statLabel}>M-Pesa</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(cardSales)}</Text><Text style={styles.statLabel}>Card</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(totalVat)}</Text><Text style={styles.statLabel}>VAT</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{formatPrice(totalDiscounts)}</Text><Text style={styles.statLabel}>Discounts</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{allCustomers.length}</Text><Text style={styles.statLabel}>Customers</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{allProducts.length}</Text><Text style={styles.statLabel}>Products</Text></View>
+                </View>
+              </View>
+            )}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          />
+        )}
+
+        {/* Inventory */}
+        {activeTab === "inventory" && (
+          <View style={{ flex: 1 }}>
+            <TextInput style={styles.searchInput} placeholder="Search products..." value={invSearch} onChangeText={setInvSearch} />
+            <FlatList
+              data={filteredInventory.slice(0, 50)}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <View style={styles.listRow}>
+                  <View style={{ flex: 1 }}><Text style={styles.listName}>{item.name}</Text></View>
+                  <Text style={[styles.listStock, item.stock <= 5 && { color: "#ef4444" }]}>{item.stock}</Text>
+                  <Text style={styles.listPrice}>{formatPrice(item.price)}</Text>
+                  <Text style={styles.listValue}>{formatPrice((item.price || 0) * (item.stock || 0))}</Text>
+                </View>
+              )}
+              ListFooterComponent={
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Total Value</Text>
+                  <Text style={styles.totalValue}>{formatPrice(inventoryValue)}</Text>
+                </View>
+              }
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            />
+          </View>
+        )}
+
+        {/* Transactions */}
+        {activeTab === "transactions" && (
+          <View style={{ flex: 1 }}>
+            <TextInput style={styles.searchInput} placeholder="Search receipt..." value={salesSearch} onChangeText={setSalesSearch} />
+            <FlatList
+              data={filteredSales.slice(0, 50)}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <View style={styles.listRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listName}>{item.receiptNumber}</Text>
+                    <Text style={styles.listSub}>{item.customerName || "Walk-in"}</Text>
+                  </View>
+                  <Text style={styles.listPrice}>{formatPrice(item.total)}</Text>
+                  <Text style={styles.listMethod}>{item.paymentMethod}</Text>
+                </View>
+              )}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            />
+          </View>
+        )}
+
+        {/* Customers */}
+        {activeTab === "customers" && (
+          <View style={{ flex: 1 }}>
+            <TextInput style={styles.searchInput} placeholder="Search customers..." value={custSearch} onChangeText={setCustSearch} />
+            <FlatList
+              data={filteredCustomers.slice(0, 50)}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <View style={styles.listRow}>
+                  <View style={{ flex: 1 }}><Text style={styles.listName}>{item.name}</Text></View>
+                  <Text style={styles.listPrice}>{formatPrice(item.totalSpent || 0)}</Text>
+                  <Text style={[styles.listMethod, { color: "#d97706" }]}>{item.loyaltyPoints || 0} pts</Text>
+                </View>
+              )}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            />
+          </View>
+        )}
+      </View>
+    </ScreenWrapper>
   );
 }
 

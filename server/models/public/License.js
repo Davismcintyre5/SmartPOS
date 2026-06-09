@@ -35,6 +35,9 @@ const licenseSchema = new mongoose.Schema(
     },
     activatedAt: Date,
     expiresAt: Date,
+    // NEW: Reminder tracking fields
+    reminder5Sent: { type: Boolean, default: false },
+    reminder1Sent: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

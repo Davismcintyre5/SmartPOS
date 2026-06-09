@@ -109,11 +109,11 @@ const seedAI = async () => {
   }
   await AIConfig.findOneAndUpdate({}, {
     providers: [
-      { name: "hdm", enabled: true, apiKey: "hdm_sma_fac92bbe8a6ba702baf750eceec2e1e60db7a701c044cc43" },
-      { name: "deepseek", enabled: false, apiKey: "" },
-      { name: "chatgpt", enabled: false, apiKey: "" },
-      { name: "claude", enabled: false, apiKey: "" },
-      { name: "gemini", enabled: false, apiKey: "" },
+      { name: "hdm", enabled: true, apiKey: "hdm_sma_fac92bbe8a6ba702baf750eceec2e1e60db7a701c044cc43", baseUrl: "" },
+      { name: "deepseek", enabled: false, apiKey: "", baseUrl: "" },
+      { name: "chatgpt", enabled: false, apiKey: "", baseUrl: "" },
+      { name: "claude", enabled: false, apiKey: "", baseUrl: "" },
+      { name: "gemini", enabled: false, apiKey: "", baseUrl: "" },
     ],
     globalDefault: "hdm",
     landingEnabled: true,

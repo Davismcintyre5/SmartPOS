@@ -5,7 +5,7 @@ import { useSidebar } from "../../hooks/useSidebar";
 import { useAuth } from "../../hooks/useAuth";
 import {
   LayoutDashboard, ShoppingCart, Package, Receipt, Users,
-  BarChart3, Settings, X, ChevronLeft, Store, Pause, Bot, Sparkles
+  BarChart3, Settings, X, ChevronLeft, Store, Pause
 } from "lucide-react";
 
 const allNavItems = [
@@ -79,7 +79,7 @@ export const Sidebar = () => {
           ))}
         </nav>
 
-        {/* HDM AI */}
+        {/* HDM AI - Star Powered ✨ */}
         {aiEnabled && (
           <div className="border-t border-gray-200 dark:border-gray-800 p-2">
             <NavLink
@@ -93,10 +93,7 @@ export const Sidebar = () => {
                 }`
               }
             >
-              <div className="relative">
-                <Bot className="w-5 h-5 shrink-0" />
-                <Sparkles className="w-3 h-3 text-blue-500 absolute -top-1 -right-1" />
-              </div>
+              <span className="text-xl shrink-0">🌟🤖</span>
               <span className={`whitespace-nowrap transition-opacity font-semibold ${open ? "opacity-100" : "opacity-0 w-0 hidden lg:inline"}`}>
                 HDM AI
               </span>

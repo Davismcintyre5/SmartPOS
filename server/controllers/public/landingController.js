@@ -48,18 +48,24 @@ const getDownloads = catchAsync(async (req, res) => {
   });
 });
 
-// @desc    Get AI status
+// @desc    Get AI status (includes maintenance details)
 // @route   GET /api/public/system/ai-status
 // @access  Public
 const getAIStatus = catchAsync(async (req, res) => {
   const config = await AIConfig.findOne().lean();
   const system = await System.findOne().lean();
+  
   res.json({
     success: true,
     landingEnabled: config?.landingEnabled || false,
     clientEnabled: config?.clientEnabled !== false,
     outwardKeyEnabled: config?.outwardKeyEnabled !== false,
     maintenanceMode: system?.maintenanceMode || false,
+    maintenanceMessage: system?.maintenanceMessage || "System is currently under maintenance. Please check back later.",
+    maintenanceReason: system?.maintenanceReason || null,
+    estimatedDuration: system?.estimatedDuration || null,
+    maintenanceStartTime: system?.maintenanceStartTime || null,
+    maintenanceEndTime: system?.maintenanceEndTime || null,
   });
 });
 

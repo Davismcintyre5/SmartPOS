@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import api from "../api/axios";
 import { formatPrice } from "../utils/formatCurrency";
 import { useAuth } from "../context/AuthContext";
+import ScreenWrapper from "../components/layout/ScreenWrapper";
 import BarcodeScanner from "../components/BarcodeScanner";
 
 export default function ProductsScreen() {
@@ -115,90 +116,237 @@ export default function ProductsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        <TouchableOpacity onPress={() => setActiveTab("list")} style={[styles.tab, activeTab === "list" && styles.tabActive]}><Text style={[styles.tabText, activeTab === "list" && styles.tabTextActive]}>Products</Text></TouchableOpacity>
-        {canManage && <TouchableOpacity onPress={() => setActiveTab("restock")} style={[styles.tab, activeTab === "restock" && styles.tabActive]}><Text style={[styles.tabText, activeTab === "restock" && styles.tabTextActive]}>Restock</Text></TouchableOpacity>}
-        {canManage && <TouchableOpacity onPress={() => setActiveTab("categories")} style={[styles.tab, activeTab === "categories" && styles.tabActive]}><Text style={[styles.tabText, activeTab === "categories" && styles.tabTextActive]}>Categories</Text></TouchableOpacity>}
-      </View>
+    <ScreenWrapper scrollable={false}>
+      <View style={styles.container}>
+        {/* Tabs */}
+        <View style={styles.tabs}>
+          <TouchableOpacity onPress={() => setActiveTab("list")} style={[styles.tab, activeTab === "list" && styles.tabActive]}>
+            <Text style={[styles.tabText, activeTab === "list" && styles.tabTextActive]}>Products</Text>
+          </TouchableOpacity>
+          {canManage && (
+            <TouchableOpacity onPress={() => setActiveTab("restock")} style={[styles.tab, activeTab === "restock" && styles.tabActive]}>
+              <Text style={[styles.tabText, activeTab === "restock" && styles.tabTextActive]}>Restock</Text>
+            </TouchableOpacity>
+          )}
+          {canManage && (
+            <TouchableOpacity onPress={() => setActiveTab("categories")} style={[styles.tab, activeTab === "categories" && styles.tabActive]}>
+              <Text style={[styles.tabText, activeTab === "categories" && styles.tabTextActive]}>Categories</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-      {activeTab === "list" && (
-        <>
-          <View style={styles.headerRow}>
-            <Text style={styles.title}>Products ({filtered.length})</Text>
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              {canManage && (
-                <TouchableOpacity onPress={() => setScannerOpen(true)}>
-                  <MaterialCommunityIcons name="barcode-scan" size={24} color="#2563eb" />
-                </TouchableOpacity>
-              )}
-              {canManage && (
-                <TouchableOpacity onPress={openAdd}>
-                  <MaterialCommunityIcons name="plus-circle" size={24} color="#2563eb" />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-          <TextInput style={styles.searchInput} placeholder="Search by name or barcode..." value={search} onChangeText={setSearch} />
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => item._id}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            renderItem={({ item }) => (
-              <View style={styles.row}>
-                <View style={styles.rowInfo}>
-                  <Text style={styles.productName}>{item.name}</Text>
-                  <Text style={styles.productBarcode}>{item.barcode || "No barcode"}</Text>
-                  <Text style={styles.productCat}>{item.category || "Uncategorized"}</Text>
-                </View>
-                <View style={styles.rowRight}>
-                  <Text style={styles.productPrice}>{formatPrice(item.price)}</Text>
-                  <Text style={[styles.productStock, item.stock <= 5 && styles.lowStock, item.stock === 0 && styles.outStock]}>Stock: {item.stock}</Text>
-                </View>
+        {/* Products List Tab */}
+        {activeTab === "list" && (
+          <View style={{ flex: 1 }}>
+            <View style={styles.headerRow}>
+              <Text style={styles.title}>Products ({filtered.length})</Text>
+              <View style={{ flexDirection: "row", gap: 12 }}>
                 {canManage && (
-                  <View style={styles.rowActions}>
-                    <TouchableOpacity onPress={() => openEdit(item)}><MaterialCommunityIcons name="pencil" size={18} color="#2563eb" /></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(item._id)}><MaterialCommunityIcons name="delete" size={18} color="#ef4444" /></TouchableOpacity>
-                  </View>
+                  <TouchableOpacity onPress={() => setScannerOpen(true)}>
+                    <MaterialCommunityIcons name="barcode-scan" size={24} color="#2563eb" />
+                  </TouchableOpacity>
+                )}
+                {canManage && (
+                  <TouchableOpacity onPress={openAdd}>
+                    <MaterialCommunityIcons name="plus-circle" size={24} color="#2563eb" />
+                  </TouchableOpacity>
                 )}
               </View>
-            )}
-          />
-        </>
-      )}
+            </View>
+            <TextInput 
+              style={styles.searchInput} 
+              placeholder="Search by name or barcode..." 
+              value={search} 
+              onChangeText={setSearch} 
+            />
+            <FlatList
+              data={filtered}
+              keyExtractor={(item) => item._id}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+              renderItem={({ item }) => (
+                <View style={styles.row}>
+                  <View style={styles.rowInfo}>
+                    <Text style={styles.productName}>{item.name}</Text>
+                    <Text style={styles.productBarcode}>{item.barcode || "No barcode"}</Text>
+                    <Text style={styles.productCat}>{item.category || "Uncategorized"}</Text>
+                  </View>
+                  <View style={styles.rowRight}>
+                    <Text style={styles.productPrice}>{formatPrice(item.price)}</Text>
+                    <Text style={[styles.productStock, item.stock <= 5 && styles.lowStock, item.stock === 0 && styles.outStock]}>
+                      Stock: {item.stock}
+                    </Text>
+                  </View>
+                  {canManage && (
+                    <View style={styles.rowActions}>
+                      <TouchableOpacity onPress={() => openEdit(item)}>
+                        <MaterialCommunityIcons name="pencil" size={18} color="#2563eb" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleDelete(item._id)}>
+                        <MaterialCommunityIcons name="delete" size={18} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
+              ListFooterComponent={<View style={{ height: 20 }} />}
+            />
+          </View>
+        )}
 
-      {/* Restock & Categories tabs remain the same as before... (omitted for brevity, but keep them) */}
-      {/* Scanner Modal */}
-      <Modal visible={scannerOpen} animationType="slide">
-        <View style={{ flex: 1 }}>
-          <BarcodeScanner onScan={handleScan} enabled={true} />
-          <TouchableOpacity
-            style={{ position: "absolute", top: 50, right: 20, zIndex: 10 }}
-            onPress={() => setScannerOpen(false)}
-          >
-            <MaterialCommunityIcons name="close" size={28} color="white" />
-          </TouchableOpacity>
-        </View>
-      </Modal>
+        {/* Restock Tab */}
+        {activeTab === "restock" && canManage && (
+          <View style={{ flex: 1 }}>
+            <FlatList
+              data={products}
+              keyExtractor={(item) => item._id}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  onPress={() => setSelectedRestock(item)} 
+                  style={[styles.restockItem, selectedRestock?._id === item._id && styles.restockSelected]}
+                >
+                  <Text style={styles.productName}>{item.name}</Text>
+                  <Text style={styles.productStock}>Stock: {item.stock}</Text>
+                </TouchableOpacity>
+              )}
+              ListFooterComponent={
+                selectedRestock ? (
+                  <View style={styles.restockForm}>
+                    <Text style={styles.restockTitle}>Restock: {selectedRestock.name}</Text>
+                    <TextInput 
+                      style={styles.input} 
+                      placeholder="Quantity to add" 
+                      value={restockQty} 
+                      onChangeText={setRestockQty} 
+                      keyboardType="numeric" 
+                    />
+                    <TextInput 
+                      style={styles.input} 
+                      placeholder="New price (optional)" 
+                      value={restockPrice} 
+                      onChangeText={setRestockPrice} 
+                      keyboardType="numeric" 
+                    />
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleRestock} disabled={saving}>
+                      <Text style={styles.saveBtnText}>Add Stock</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null
+              }
+            />
+          </View>
+        )}
 
-      {/* Add/Edit Modal */}
-      <Modal visible={showForm} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <ScrollView style={styles.formModal}>
-            <Text style={styles.formTitle}>{editId ? "Edit Product" : "Add Product"}</Text>
-            <TextInput style={styles.input} placeholder="Name *" value={form.name} onChangeText={(t) => setForm({ ...form, name: t })} />
-            <TextInput style={styles.input} placeholder="Barcode" value={form.barcode} onChangeText={(t) => setForm({ ...form, barcode: t })} />
-            <TextInput style={styles.input} placeholder="Price *" value={form.price} onChangeText={(t) => setForm({ ...form, price: t })} keyboardType="numeric" />
-            <TextInput style={styles.input} placeholder="Cost" value={form.cost} onChangeText={(t) => setForm({ ...form, cost: t })} keyboardType="numeric" />
-            <TextInput style={styles.input} placeholder="Stock" value={form.stock} onChangeText={(t) => setForm({ ...form, stock: t })} keyboardType="numeric" />
-            <TextInput style={styles.input} placeholder="Category" value={form.category} onChangeText={(t) => setForm({ ...form, category: t })} />
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}><Text style={styles.saveBtnText}>{saving ? "Saving..." : editId ? "Update" : "Create"}</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowForm(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
-          </ScrollView>
-        </View>
-      </Modal>
-    </View>
+        {/* Categories Tab */}
+        {activeTab === "categories" && canManage && (
+          <View style={{ flex: 1 }}>
+            <FlatList
+              data={categories}
+              keyExtractor={(item) => item}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+              renderItem={({ item: cat }) => (
+                <View style={styles.catRow}>
+                  {editingCategory === cat ? (
+                    <View style={styles.catEdit}>
+                      <TextInput 
+                        style={styles.catInput} 
+                        value={editCatValue} 
+                        onChangeText={setEditCatValue} 
+                        autoFocus 
+                      />
+                      <TouchableOpacity onPress={() => handleRenameCategory(cat)}>
+                        <MaterialCommunityIcons name="check" size={20} color="#16a34a" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setEditingCategory(null)}>
+                        <MaterialCommunityIcons name="close" size={20} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.catInfo}>
+                      <Text style={styles.catName}>{cat}</Text>
+                      <Text style={styles.catCount}>
+                        {products.filter((p) => p.category === cat).length} items
+                      </Text>
+                      <TouchableOpacity onPress={() => { setEditingCategory(cat); setEditCatValue(cat); }}>
+                        <MaterialCommunityIcons name="pencil" size={16} color="#2563eb" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
+              ListFooterComponent={<View style={{ height: 20 }} />}
+            />
+          </View>
+        )}
+
+        {/* Scanner Modal */}
+        <Modal visible={scannerOpen} animationType="slide">
+          <View style={{ flex: 1 }}>
+            <BarcodeScanner onScan={handleScan} enabled={true} />
+            <TouchableOpacity
+              style={{ position: "absolute", top: 50, right: 20, zIndex: 10 }}
+              onPress={() => setScannerOpen(false)}
+            >
+              <MaterialCommunityIcons name="close" size={28} color="white" />
+            </TouchableOpacity>
+          </View>
+        </Modal>
+
+        {/* Add/Edit Modal */}
+        <Modal visible={showForm} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <ScrollView style={styles.formModal}>
+              <Text style={styles.formTitle}>{editId ? "Edit Product" : "Add Product"}</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Name *" 
+                value={form.name} 
+                onChangeText={(t) => setForm({ ...form, name: t })} 
+              />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Barcode" 
+                value={form.barcode} 
+                onChangeText={(t) => setForm({ ...form, barcode: t })} 
+              />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Price *" 
+                value={form.price} 
+                onChangeText={(t) => setForm({ ...form, price: t })} 
+                keyboardType="numeric" 
+              />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Cost" 
+                value={form.cost} 
+                onChangeText={(t) => setForm({ ...form, cost: t })} 
+                keyboardType="numeric" 
+              />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Stock" 
+                value={form.stock} 
+                onChangeText={(t) => setForm({ ...form, stock: t })} 
+                keyboardType="numeric" 
+              />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Category" 
+                value={form.category} 
+                onChangeText={(t) => setForm({ ...form, category: t })} 
+              />
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+                <Text style={styles.saveBtnText}>{saving ? "Saving..." : editId ? "Update" : "Create"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowForm(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </Modal>
+      </View>
+    </ScreenWrapper>
   );
 }
 

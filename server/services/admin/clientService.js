@@ -1,3 +1,4 @@
+// services/admin/clientService.js
 const Client = require("../../models/admin/Client");
 const User = require("../../models/client/User");
 const License = require("../../models/public/License");
@@ -10,6 +11,8 @@ const ClientCurrency = require("../../models/client/Currency");
 const AISettings = require("../../models/client/AISettings");
 const ClientSubscription = require("../../models/client/Subscription");
 const Payment = require("../../models/admin/Payment");
+const emailService = require("../../services/public/emailService");
+const { generateLicenseKey } = require("../../utils/licenseGenerator");
 const AppError = require("../../utils/AppError");
 const logger = require("../../config/logger");
 
@@ -51,8 +54,57 @@ const suspendClient = async (id) => {
 };
 
 const activateClient = async (id) => {
-  const client = await Client.findByIdAndUpdate(id, { status: "active" }, { new: true });
+  const client = await Client.findById(id);
   if (!client) throw new AppError("Client not found", 404);
+  
+  // Generate license key if not exists
+  if (!client.licenseKey) {
+    client.licenseKey = generateLicenseKey();
+  }
+  
+  client.status = "active";
+  await client.save();
+  
+  // Activate all users for this client
+  await User.updateMany({ clientId: id }, { active: true });
+  
+  // Get or create license record
+  let license = await License.findOne({ clientId: id });
+  if (!license) {
+    license = await License.create({
+      clientId: id,
+      licenseKey: client.licenseKey,
+      plan: client.plan || "monthly",
+      status: "active",
+      activatedAt: new Date(),
+      expiresAt: client.subscriptionExpiry || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    });
+  } else {
+    license.status = "active";
+    license.licenseKey = client.licenseKey;
+    await license.save();
+  }
+  
+  // Get the owner user for email
+  const owner = await User.findOne({ clientId: id, isOwner: true });
+  
+  // Send approval email with license details
+  if (owner && owner.email) {
+    try {
+      await emailService.sendUserApprovedWithLicenseEmail(
+        owner.email,
+        owner.name,
+        client.businessName,
+        client.licenseKey,
+        client.plan || "monthly",
+        client.subscriptionExpiry
+      );
+      logger.info(`✅ Activation email sent to ${owner.email} with license details`);
+    } catch (err) {
+      logger.error("Failed to send activation email", { error: err.message });
+    }
+  }
+  
   return client;
 };
 

@@ -15,8 +15,161 @@ import { storage } from "../../utils/storage";
 import {
   ScanLine, Camera, CameraOff, Plus, Minus, Trash2, ShoppingCart,
   Pause, CreditCard, Banknote, Smartphone, Receipt, User, Printer, CheckCircle, XCircle,
+  ChevronLeft
 } from "lucide-react";
 import toast from "react-hot-toast";
+
+// Helper function to round to nearest whole number (50.5 -> 51, 50.4 -> 50)
+const roundToWhole = (num) => Math.round(num);
+
+// Helper function to format price without trailing decimals
+const formatPriceTruncated = (price) => {
+  const rounded = roundToWhole(price);
+  return formatPrice(rounded);
+};
+
+// Helper function to truncate a number to whole number
+const truncateToWhole = (num) => Math.round(num);
+
+// CartContent component - defined outside POS to prevent re-creation on every render
+const CartContent = ({
+  cart,
+  customerName,
+  setCustomerName,
+  loyaltyCardNumber,
+  setLoyaltyCardNumber,
+  loyaltyStatus,
+  receiptSettings,
+  appliedDiscounts,
+  globalDiscountAmount,
+  subtotal,
+  vatAmount,
+  total,
+  isMobile,
+  setShowCart,
+  updateQuantity,
+  removeFromCart,
+  clearCart,
+  holdSale,
+  setShowPayment,
+}) => (
+  <div className="flex flex-col h-full">
+    <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+      <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+        <ShoppingCart className="w-5 h-5" /> Cart ({cart.length})
+      </h3>
+      <div className="flex gap-2">
+        <button 
+          onClick={() => setShowCart(false)} 
+          className="text-xs bg-primary-50 dark:bg-primary-900/20 text-primary-600 hover:bg-primary-100 dark:hover:bg-primary-900/40 px-3 py-1 rounded-lg transition-colors"
+        >
+          + Add More
+        </button>
+        {cart.length > 0 && (
+          <button onClick={clearCart} className="text-xs text-red-500 hover:underline">Clear</button>
+        )}
+        {isMobile && (
+          <button onClick={() => setShowCart(false)} className="md:hidden p-1">
+            <ChevronLeft className="w-5 h-5 text-gray-500" />
+          </button>
+        )}
+      </div>
+    </div>
+    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      {cart.length === 0 ? (
+        <p className="text-center text-gray-400 text-sm py-8">Cart is empty</p>
+      ) : (
+        cart.map((item) => (
+          <div key={item._id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.name}</p>
+              <p className="text-xs text-gray-500">{formatPriceTruncated(item.price)} x {item.quantity}</p>
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => updateQuantity(item._id, -1)} className="p-1 text-gray-400 hover:text-primary-600"><Minus className="w-4 h-4" /></button>
+              <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
+              <button onClick={() => updateQuantity(item._id, 1)} className="p-1 text-gray-400 hover:text-primary-600"><Plus className="w-4 h-4" /></button>
+              <button onClick={() => removeFromCart(item._id)} className="p-1 text-gray-400 hover:text-red-500 ml-1"><Trash2 className="w-4 h-4" /></button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+    {cart.length > 0 && (
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <input 
+            type="text" 
+            value={customerName} 
+            onChange={(e) => setCustomerName(e.target.value)} 
+            placeholder="Customer name (optional)" 
+            className="flex-1 text-sm border rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-primary-500" 
+          />
+        </div>
+        {receiptSettings.loyaltyEnabled && (
+          <div>
+            <div className="flex items-center gap-2">
+              <input 
+                type="text" 
+                value={loyaltyCardNumber} 
+                onChange={(e) => setLoyaltyCardNumber(e.target.value)} 
+                placeholder="Loyalty card number (optional)"
+                className={`flex-1 text-sm border rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 ${
+                  loyaltyStatus?.found === true ? "border-green-500 focus:ring-green-500" :
+                  loyaltyStatus?.found === false ? "border-red-500 focus:ring-red-500" :
+                  "border-gray-200 dark:border-gray-700 focus:ring-primary-500"
+                }`} 
+              />
+              {loyaltyStatus?.found === true && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
+              {loyaltyStatus?.found === false && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
+            </div>
+            {loyaltyStatus?.found === true && (
+              <p className="text-xs text-green-600 mt-1">{loyaltyStatus.name} — {loyaltyStatus.points} pts</p>
+            )}
+            {loyaltyStatus?.found === false && (
+              <p className="text-xs text-red-500 mt-1">Card not found. Points won't be added.</p>
+            )}
+          </div>
+        )}
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-500">Subtotal</span>
+          <span className="text-gray-900 dark:text-white font-medium">{formatPriceTruncated(subtotal)}</span>
+        </div>
+        {appliedDiscounts.map((d, i) => (
+          <div key={i} className="flex items-center justify-between text-sm" style={{ color: "#059669" }}>
+            <span>{d.name}</span>
+            <span>-{formatPriceTruncated(d.amount)}</span>
+          </div>
+        ))}
+        {receiptSettings.globalDiscountEnabled && globalDiscountAmount > 0 && (
+          <div className="flex items-center justify-between text-sm" style={{ color: "#059669" }}>
+            <span>{receiptSettings.globalDiscountName}</span>
+            <span>-{formatPriceTruncated(globalDiscountAmount)}</span>
+          </div>
+        )}
+        {receiptSettings.vatEnabled && (
+          <div className="flex items-center justify-between text-sm" style={{ color: "#dc2626" }}>
+            <span>VAT ({receiptSettings.vatRate}%)</span>
+            <span>{formatPriceTruncated(vatAmount)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between text-lg font-bold">
+          <span className="text-gray-900 dark:text-white">Total</span>
+          <span className="text-primary-600">{formatPriceTruncated(total)}</span>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" className="flex-1" onClick={holdSale}>
+            <Pause className="w-4 h-4" /> Hold
+          </Button>
+          <Button size="sm" className="flex-[2]" onClick={() => setShowPayment(true)}>
+            Process Payment
+          </Button>
+        </div>
+      </div>
+    )}
+  </div>
+);
 
 export const POS = () => {
   const { user, hasPermission } = useAuth();
@@ -32,12 +185,14 @@ export const POS = () => {
   const [processing, setProcessing] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [loyaltyCardNumber, setLoyaltyCardNumber] = useState("");
-  const [loyaltyStatus, setLoyaltyStatus] = useState(null); // null | { found: true, name: "" } | { found: false }
+  const [loyaltyStatus, setLoyaltyStatus] = useState(null);
   const [receiptSettings, setReceiptSettings] = useState({
     receiptHeader: "", receiptFooter: "", vatRate: 0, vatEnabled: false,
     globalDiscountEnabled: false, globalDiscountName: "Discount", globalDiscountRate: 0,
     specificDiscounts: [], loyaltyEnabled: false,
   });
+  const [showCart, setShowCart] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const barcodeInputRef = useRef(null);
   const canSell = hasPermission("processSales");
 
@@ -66,6 +221,14 @@ export const POS = () => {
         });
       }
     }).catch(() => {});
+  }, []);
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // Loyalty card lookup with debounce
@@ -141,6 +304,7 @@ export const POS = () => {
       return [...prev, { ...product, quantity: 1 }];
     });
     setSearch("");
+    if (isMobile && cart.length === 0) setShowCart(true);
   };
 
   const removeFromCart = (id) => setCart((prev) => prev.filter((item) => item._id !== id));
@@ -174,38 +338,64 @@ export const POS = () => {
   const total = Math.max(0, Math.round((taxableAmount + vatAmount) * 100) / 100);
   const changeAmount = amountPaid ? Math.max(0, Math.round((Number(amountPaid) - total) * 100) / 100) : 0;
 
-  const clearCart = () => { setCart([]); setCustomerName(""); setAmountPaid(""); setLoyaltyCardNumber(""); setLoyaltyStatus(null); };
+  const clearCart = () => { 
+    setCart([]); 
+    setCustomerName(""); 
+    setAmountPaid(""); 
+    setLoyaltyCardNumber(""); 
+    setLoyaltyStatus(null); 
+    if (isMobile) setShowCart(false);
+  };
 
   const holdSale = async () => {
     if (cart.length === 0) return;
     try {
-      const res = await posApi.holdSale({ items: cart.map((item) => ({ productId: item._id, quantity: item.quantity, price: item.price })), total, discount: totalDiscount, customerName: customerName || "Walk-in Customer" });
+      const res = await posApi.holdSale({ items: cart.map((item) => ({ productId: item._id, quantity: item.quantity, price: item.price })), total: truncateToWhole(total), discount: truncateToWhole(totalDiscount), customerName: customerName || "Walk-in Customer" });
       if (res.success) { toast.success("Sale held."); clearCart(); } else toast.error(res.message || "Failed.");
     } catch (err) { toast.error(err?.message || "Failed."); }
   };
 
   const processPayment = async (method) => {
     if (cart.length === 0) return;
-    if (method === "cash" && (!amountPaid || Number(amountPaid) < total)) { toast.error("Please enter the amount received."); return; }
+    const truncatedTotal = truncateToWhole(total);
+    if (method === "cash" && (!amountPaid || Number(amountPaid) < truncatedTotal)) { toast.error("Please enter the amount received."); return; }
     setProcessing(true);
-    const receiptValues = { subtotal, appliedDiscounts: [...appliedDiscounts], globalDiscountAmount, vatAmount, total, cartItems: cart.map((item) => ({ ...item })), customerName: customerName || "", loyaltyCardNumber: loyaltyCardNumber || "" };
+    const truncatedAmountPaid = method === "cash" ? truncateToWhole(Number(amountPaid)) : truncatedTotal;
+    const truncatedChangeAmount = method === "cash" ? Math.max(0, truncatedAmountPaid - truncatedTotal) : 0;
+    const receiptValues = { 
+      subtotal: truncateToWhole(subtotal), 
+      appliedDiscounts: appliedDiscounts.map(d => ({ ...d, amount: truncateToWhole(d.amount) })), 
+      globalDiscountAmount: truncateToWhole(globalDiscountAmount), 
+      vatAmount: truncateToWhole(vatAmount), 
+      total: truncatedTotal, 
+      cartItems: cart.map((item) => ({ ...item, price: truncateToWhole(item.price) })), 
+      customerName: customerName || "", 
+      loyaltyCardNumber: loyaltyCardNumber || "" 
+    };
     try {
- const res = await posApi.createSale({
-  items: cart.map((item) => ({ productId: item._id, quantity: item.quantity, price: item.price })),
-  paymentMethod: method,
-  discount: totalDiscount,
-  vatRate: receiptSettings.vatEnabled ? receiptSettings.vatRate : 0,
-  vatAmount: vatAmount,
-  amountPaid: method === "cash" ? Number(amountPaid) : total,
-  changeAmount: method === "cash" ? changeAmount : 0,
-  loyaltyCardNumber: loyaltyCardNumber || "",
-  customerName: customerName || "",
-  customerId: null,
-  status: "completed",
-});
+      const res = await posApi.createSale({
+        items: cart.map((item) => ({ productId: item._id, quantity: item.quantity, price: truncateToWhole(item.price) })),
+        paymentMethod: method,
+        discount: truncateToWhole(totalDiscount),
+        vatRate: receiptSettings.vatEnabled ? receiptSettings.vatRate : 0,
+        vatAmount: truncateToWhole(vatAmount),
+        amountPaid: truncatedAmountPaid,
+        changeAmount: truncatedChangeAmount,
+        loyaltyCardNumber: loyaltyCardNumber || "",
+        customerName: customerName || "",
+        customerId: null,
+        status: "completed",
+      });
       if (res && res.success) {
         const sale = res.sale || res.data;
-        setLastSale({ ...sale, ...receiptValues, amountPaid: method === "cash" ? Number(amountPaid) : total, changeAmount: method === "cash" ? changeAmount : 0, customerName: customerName || "" });
+        setLastSale({ 
+          ...sale, 
+          ...receiptValues, 
+          amountPaid: truncatedAmountPaid, 
+          changeAmount: truncatedChangeAmount, 
+          customerName: customerName || "",
+          paymentMethod: method
+        });
         setShowPayment(false); setShowReceipt(true); clearCart(); fetchProducts();
         const resumedSaleId = sessionStorage.getItem("resumed_sale_id");
         if (resumedSaleId) { sessionStorage.removeItem("resumed_sale_id"); posApi.removeHeldSale(resumedSaleId).catch(() => {}); }
@@ -245,6 +435,14 @@ export const POS = () => {
         <button onClick={() => setCameraOn(!cameraOn)} className={`p-2.5 rounded-lg border transition-colors ${cameraOn ? "bg-primary-50 border-primary-500 text-primary-600" : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500"}`}>
           {cameraOn ? <CameraOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
         </button>
+        {isMobile && cart.length > 0 && (
+          <button onClick={() => setShowCart(true)} className="relative p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800">
+            <ShoppingCart className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            <span className="absolute -top-1 -right-1 bg-primary-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {cart.length}
+            </span>
+          </button>
+        )}
       </div>
       {cameraOn && <div className="mb-4 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600"><video id="camera-preview" className="w-full h-40 object-cover bg-black" /></div>}
 
@@ -258,7 +456,7 @@ export const POS = () => {
                   {filteredProducts.map((p) => (
                     <button key={p._id} onClick={() => addToCart(p)} className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 text-left hover:border-primary-400 hover:shadow-sm transition-all">
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{p.name}</p>
-                      <p className="text-xs text-primary-600 font-medium">{formatPrice(p.price)}</p>
+                      <p className="text-xs text-primary-600 font-medium">{formatPriceTruncated(p.price)}</p>
                       <p className="text-xs text-gray-400">Stock: {p.stock}</p>
                     </button>
                   ))}
@@ -274,68 +472,70 @@ export const POS = () => {
           )}
         </div>
 
-        <div className="w-80 lg:w-96 flex-shrink-0 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2"><ShoppingCart className="w-5 h-5" /> Cart ({cart.length})</h3>
-            {cart.length > 0 && <button onClick={clearCart} className="text-xs text-red-500 hover:underline">Clear</button>}
+        {!isMobile && (
+          <div className="w-80 lg:w-96 flex-shrink-0 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col">
+            <CartContent
+              cart={cart}
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              loyaltyCardNumber={loyaltyCardNumber}
+              setLoyaltyCardNumber={setLoyaltyCardNumber}
+              loyaltyStatus={loyaltyStatus}
+              receiptSettings={receiptSettings}
+              appliedDiscounts={appliedDiscounts}
+              globalDiscountAmount={globalDiscountAmount}
+              subtotal={subtotal}
+              vatAmount={vatAmount}
+              total={total}
+              isMobile={isMobile}
+              setShowCart={setShowCart}
+              updateQuantity={updateQuantity}
+              removeFromCart={removeFromCart}
+              clearCart={clearCart}
+              holdSale={holdSale}
+              setShowPayment={setShowPayment}
+            />
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {cart.length === 0 ? <p className="text-center text-gray-400 text-sm py-8">Cart is empty</p> : cart.map((item) => (
-              <div key={item._id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.name}</p><p className="text-xs text-gray-500">{formatPrice(item.price)} x {item.quantity}</p></div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => updateQuantity(item._id, -1)} className="p-1 text-gray-400 hover:text-primary-600"><Minus className="w-4 h-4" /></button>
-                  <span className="text-sm font-medium w-6 text-center">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item._id, 1)} className="p-1 text-gray-400 hover:text-primary-600"><Plus className="w-4 h-4" /></button>
-                  <button onClick={() => removeFromCart(item._id)} className="p-1 text-gray-400 hover:text-red-500 ml-1"><Trash2 className="w-4 h-4" /></button>
-                </div>
-              </div>
-            ))}
-          </div>
-          {cart.length > 0 && (
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-              <div className="flex items-center gap-2"><User className="w-4 h-4 text-gray-400" /><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Customer name (optional)" className="flex-1 text-sm border-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none" /></div>
-              {receiptSettings.loyaltyEnabled && (
-                <div>
-                  <div className="flex items-center gap-2">
-                    <input type="text" value={loyaltyCardNumber} onChange={(e) => setLoyaltyCardNumber(e.target.value)} placeholder="Loyalty card number (optional)"
-                      className={`flex-1 text-sm border rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 ${
-                        loyaltyStatus?.found === true ? "border-green-500 focus:ring-green-500" :
-                        loyaltyStatus?.found === false ? "border-red-500 focus:ring-red-500" :
-                        "border-gray-200 dark:border-gray-700 focus:ring-primary-500"
-                      }`} />
-                    {loyaltyStatus?.found === true && <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />}
-                    {loyaltyStatus?.found === false && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
-                  </div>
-                  {loyaltyStatus?.found === true && (
-                    <p className="text-xs text-green-600 mt-1">{loyaltyStatus.name} — {loyaltyStatus.points} pts</p>
-                  )}
-                  {loyaltyStatus?.found === false && (
-                    <p className="text-xs text-red-500 mt-1">Card not found. Points won't be added.</p>
-                  )}
-                </div>
-              )}
-              <div className="flex items-center justify-between text-sm"><span className="text-gray-500">Subtotal</span><span className="text-gray-900 dark:text-white font-medium">{formatPrice(subtotal)}</span></div>
-              {appliedDiscounts.map((d, i) => <div key={i} className="flex items-center justify-between text-sm" style={{ color: "#059669" }}><span>{d.name}</span><span>-{formatPrice(d.amount)}</span></div>)}
-              {receiptSettings.globalDiscountEnabled && globalDiscountAmount > 0 && <div className="flex items-center justify-between text-sm" style={{ color: "#059669" }}><span>{receiptSettings.globalDiscountName}</span><span>-{formatPrice(globalDiscountAmount)}</span></div>}
-              {receiptSettings.vatEnabled && <div className="flex items-center justify-between text-sm" style={{ color: "#dc2626" }}><span>VAT ({receiptSettings.vatRate}%)</span><span>{formatPrice(vatAmount)}</span></div>}
-              <div className="flex items-center justify-between text-lg font-bold"><span className="text-gray-900 dark:text-white">Total</span><span className="text-primary-600">{formatPrice(total)}</span></div>
-              <div className="flex gap-2">
-                <Button variant="secondary" size="sm" className="flex-1" onClick={holdSale}><Pause className="w-4 h-4" /> Hold</Button>
-                <Button size="sm" className="flex-[2]" onClick={() => setShowPayment(true)}>Process Payment</Button>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
+
+      {isMobile && showCart && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex justify-end">
+          <div className="w-full max-w-sm bg-white dark:bg-gray-900 h-full flex flex-col shadow-xl">
+            <CartContent
+              cart={cart}
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              loyaltyCardNumber={loyaltyCardNumber}
+              setLoyaltyCardNumber={setLoyaltyCardNumber}
+              loyaltyStatus={loyaltyStatus}
+              receiptSettings={receiptSettings}
+              appliedDiscounts={appliedDiscounts}
+              globalDiscountAmount={globalDiscountAmount}
+              subtotal={subtotal}
+              vatAmount={vatAmount}
+              total={total}
+              isMobile={isMobile}
+              setShowCart={setShowCart}
+              updateQuantity={updateQuantity}
+              removeFromCart={removeFromCart}
+              clearCart={clearCart}
+              holdSale={holdSale}
+              setShowPayment={setShowPayment}
+            />
+          </div>
+        </div>
+      )}
 
       <Modal isOpen={showPayment} onClose={() => setShowPayment(false)} title="Payment" size="md">
         <div className="space-y-4">
-          <p className="text-center text-2xl font-bold text-gray-900 dark:text-white">{formatPrice(total)}</p>
+          <p className="text-center text-2xl font-bold text-gray-900 dark:text-white">{formatPriceTruncated(total)}</p>
           <button onClick={() => processPayment("cash")} disabled={processing} className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-green-500 text-left">
             <div className="flex items-center gap-3 mb-3"><Banknote className="w-6 h-6 text-green-600" /><span className="font-medium">Cash</span></div>
             <Input type="number" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} placeholder="Amount received" onClick={(e) => e.stopPropagation()} />
-            {amountPaid && Number(amountPaid) >= total && <p className="text-sm text-green-600 mt-2">Change: {formatPrice(changeAmount)}</p>}
+            {amountPaid && Number(amountPaid) >= truncateToWhole(total) && (
+              <p className="text-sm text-green-600 mt-2">Change: {formatPriceTruncated(Math.max(0, truncateToWhole(Number(amountPaid)) - truncateToWhole(total)))}</p>
+            )}
           </button>
           <button onClick={() => { setAmountPaid(""); processPayment("mpesa"); }} disabled={processing} className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-green-500 flex items-center gap-3"><Smartphone className="w-6 h-6 text-green-600" /><span className="font-medium">M-Pesa</span></button>
           <button onClick={() => { setAmountPaid(""); processPayment("card"); }} disabled={processing} className="w-full p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-blue-500 flex items-center gap-3"><CreditCard className="w-6 h-6 text-blue-600" /><span className="font-medium">Card</span></button>
@@ -356,16 +556,44 @@ export const POS = () => {
                 {lastSale.customerName && lastSale.customerName !== "Walk-in Customer" && <p style={{ fontSize: 10, margin: 0 }}>Customer: {lastSale.customerName}</p>}
               </div>
               <hr style={{ border: "none", borderTop: "1px dashed #ccc", margin: "4px 0" }} />
-              {(lastSale.cartItems || lastSale.items || []).map((item, i) => <div key={i} style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}><span>{item.name || "Item"} x{item.quantity}</span><span>{formatPrice((item.price || 0) * (item.quantity || 1))}</span></div>)}
+              {(lastSale.cartItems || lastSale.items || []).map((item, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", margin: "2px 0" }}>
+                  <span>{item.name || "Item"} x{item.quantity}</span>
+                  <span>{formatPriceTruncated((item.price || 0) * (item.quantity || 1))}</span>
+                </div>
+              ))}
               <hr style={{ border: "none", borderTop: "1px dashed #ccc", margin: "4px 0" }} />
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Subtotal</span><span>{formatPrice(lastSale.subtotal || 0)}</span></div>
-              {(lastSale.appliedDiscounts || []).map((d, i) => <div key={i} style={{ display: "flex", justifyContent: "space-between", color: "#059669" }}><span>{d.name}</span><span>-{formatPrice(d.amount)}</span></div>)}
-              {receiptSettings.globalDiscountEnabled && (lastSale.globalDiscountAmount || 0) > 0 && <div style={{ display: "flex", justifyContent: "space-between", color: "#059669" }}><span>{receiptSettings.globalDiscountName}</span><span>-{formatPrice(lastSale.globalDiscountAmount || 0)}</span></div>}
-              {receiptSettings.vatEnabled && <div style={{ display: "flex", justifyContent: "space-between", color: "#dc2626" }}><span>VAT ({receiptSettings.vatRate}%)</span><span>{formatPrice(lastSale.vatAmount || 0)}</span></div>}
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Subtotal</span><span>{formatPriceTruncated(lastSale.subtotal || 0)}</span></div>
+              {(lastSale.appliedDiscounts || []).map((d, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", color: "#059669" }}>
+                  <span>{d.name}</span>
+                  <span>-{formatPriceTruncated(d.amount)}</span>
+                </div>
+              ))}
+              {receiptSettings.globalDiscountEnabled && (lastSale.globalDiscountAmount || 0) > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#059669" }}>
+                  <span>{receiptSettings.globalDiscountName}</span>
+                  <span>-{formatPriceTruncated(lastSale.globalDiscountAmount || 0)}</span>
+                </div>
+              )}
+              {receiptSettings.vatEnabled && (
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#dc2626" }}>
+                  <span>VAT ({receiptSettings.vatRate}%)</span>
+                  <span>{formatPriceTruncated(lastSale.vatAmount || 0)}</span>
+                </div>
+              )}
               <hr style={{ border: "none", borderTop: "1px dashed #ccc", margin: "4px 0" }} />
-              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}><span>Total</span><span>{formatPrice(lastSale.total || 0)}</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}>
+                <span>Total</span>
+                <span>{formatPriceTruncated(lastSale.total || 0)}</span>
+              </div>
               <p style={{ fontSize: 10, margin: "2px 0" }}>Payment: {lastSale.paymentMethod}</p>
-              {lastSale.paymentMethod === "cash" && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10 }}><span>Paid: {formatPrice(lastSale.amountPaid || lastSale.total || 0)}</span><span>Change: {formatPrice(lastSale.changeAmount || 0)}</span></div>}
+              {lastSale.paymentMethod === "cash" && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10 }}>
+                  <span>Paid: {formatPriceTruncated(lastSale.amountPaid || lastSale.total || 0)}</span>
+                  <span>Change: {formatPriceTruncated(lastSale.changeAmount || 0)}</span>
+                </div>
+              )}
               <p style={{ margin: "6px 0", color: "#888" }}>{receiptSettings.receiptFooter}</p>
               <hr style={{ border: "none", borderTop: "1px dashed #ccc", margin: "4px 0" }} />
               <p style={{ color: "#aaa", fontSize: 9, margin: 0 }}>Generated by SmartPOS on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>

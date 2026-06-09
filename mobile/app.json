@@ -32,12 +32,13 @@
         "android.permission.RECORD_AUDIO"
       ]
     },
-"plugins": [
-  "expo-camera",
-  "expo-av",
-  "expo-local-authentication",
-  "expo-notifications"
-],
+    "plugins": [
+      "expo-camera",
+      "expo-av",
+      "expo-local-authentication",
+      "expo-notifications",
+      "expo-audio"
+    ],
     "extra": {
       "eas": {
         "projectId": "eb5ff8d0-a81d-4a4f-844e-61b91030a89f"

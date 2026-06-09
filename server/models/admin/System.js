@@ -1,3 +1,4 @@
+// models/admin/System.js
 const mongoose = require("mongoose");
 
 const systemSchema = new mongoose.Schema(
@@ -17,6 +18,34 @@ const systemSchema = new mongoose.Schema(
     maintenanceMode: {
       type: Boolean,
       default: false,
+    },
+    maintenanceMessage: {
+      type: String,
+      default: "System is currently under maintenance. Please check back later.",
+    },
+    maintenanceStartTime: {
+      type: Date,
+      default: null,
+    },
+    maintenanceEndTime: {
+      type: Date,
+      default: null,
+    },
+    maintenanceReason: {
+      type: String,
+      default: "Scheduled maintenance",
+    },
+    estimatedDuration: {
+      type: String,
+      default: "2 hours",
+    },
+    maintenanceNotified: {
+      type: Boolean,
+      default: false,
+    },
+    supportEmail: {
+      type: String,
+      default: "support@smartpos.com",
     },
     mobileAppEnabled: {
       type: Boolean,

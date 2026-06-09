@@ -2,7 +2,7 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = "https://smartpos-server.pxxl.click/api";
+const BASE_URL = "https://smartpos-server-api.onrender.com/api";
 
 const api = axios.create({
   baseURL: BASE_URL,

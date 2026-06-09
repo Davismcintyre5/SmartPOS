@@ -43,18 +43,57 @@ export const Login = () => {
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input label="Email Address" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@example.com" required />
-            <Input label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Enter your password" required />
+            <Input 
+              label="Email Address" 
+              type="email" 
+              value={form.email} 
+              onChange={(e) => setForm({ ...form, email: e.target.value })} 
+              placeholder="you@example.com" 
+              required 
+            />
+            
+            <div>
+              <Input 
+                label="Password" 
+                type="password" 
+                value={form.password} 
+                onChange={(e) => setForm({ ...form, password: e.target.value })} 
+                placeholder="Enter your password" 
+                required 
+              />
+              <div className="text-right mt-1">
+                <Link to="/forgot-password" className="text-xs text-primary-600 hover:underline">
+                  Forgot Password?
+                </Link>
+              </div>
+            </div>
+            
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.rememberMe} onChange={(e) => setForm({ ...form, rememberMe: e.target.checked })} className="w-4 h-4 rounded border-gray-300 text-primary-600" />
+              <input 
+                type="checkbox" 
+                checked={form.rememberMe} 
+                onChange={(e) => setForm({ ...form, rememberMe: e.target.checked })} 
+                className="w-4 h-4 rounded border-gray-300 text-primary-600" 
+              />
               <span className="text-sm text-gray-600 dark:text-gray-400">Remember me</span>
             </label>
-            {error && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"><p className="text-sm text-red-600 dark:text-red-400">{error}</p></div>}
-            <Button type="submit" loading={loading} className="w-full" size="lg">Sign In</Button>
+            
+            {error && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
+            
+            <Button type="submit" loading={loading} className="w-full" size="lg">
+              Sign In
+            </Button>
           </form>
         </div>
         <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-          Don't have an account?{" "}<Link to="/pricing" className="text-primary-600 hover:underline font-medium">Get Started</Link>
+          Don't have an account?{" "}
+          <Link to="/pricing" className="text-primary-600 hover:underline font-medium">
+            Get Started
+          </Link>
         </p>
       </div>
     </div>

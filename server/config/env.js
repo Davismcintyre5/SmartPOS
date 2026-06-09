@@ -46,9 +46,11 @@ const env = {
   PAYPAL_SECRET: process.env.PAYPAL_SECRET || "",
   PAYPAL_ENVIRONMENT: process.env.PAYPAL_ENVIRONMENT || "sandbox",
 
-  // Brevo
-  BREVO_API_KEY: process.env.BREVO_API_KEY || "",
-  BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL || "noreply@smartpos.com",
+  // HDM Bridge Email (Replaces Brevo)
+  HDM_API_KEY: process.env.HDM_API_KEY || "",
+  HDM_API_URL: process.env.HDM_API_URL || "https://api.hdmbridge.com/api",
+  HDM_FROM_EMAIL: process.env.HDM_FROM_EMAIL || "noreply@smartpos.com",
+  HDM_FROM_NAME: process.env.HDM_FROM_NAME || "SmartPOS",
 
   // Cloudinary
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
@@ -64,6 +66,11 @@ if (env.NODE_ENV === "production") {
   if (missing.length > 0) {
     console.error(`❌ Missing or insecure environment variables: ${missing.join(", ")}`);
     process.exit(1);
+  }
+  
+  // Warn if HDM API key is missing in production
+  if (!env.HDM_API_KEY) {
+    console.warn("⚠️  HDM_API_KEY not configured — email sending will be disabled");
   }
 }
 

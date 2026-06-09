@@ -14,5 +14,6 @@ router.use("/system", require("./systemRoutes"));
 router.use("/system-backups", require("./systemBackupRoutes"));
 router.use("/content", require("./contentRoutes"));
 router.use("/inquiries", require("./inquiryRoutes"));
+router.use("/email", require("./emailRoutes"));
 
 module.exports = router;

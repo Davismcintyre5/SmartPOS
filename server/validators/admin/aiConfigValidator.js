@@ -6,6 +6,7 @@ const updateAIConfigSchema = Joi.object({
       name: Joi.string().valid("hdm", "deepseek", "chatgpt", "claude", "gemini").required(),
       enabled: Joi.boolean(),
       apiKey: Joi.string().allow(""),
+      baseUrl: Joi.string().allow(""),  // Add this line
     })
   ),
   globalDefault: Joi.string().valid("hdm", "deepseek", "chatgpt", "claude", "gemini"),

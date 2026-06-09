@@ -13,6 +13,8 @@ import { Login } from "./pages/auth/Login";
 import { Register } from "./pages/auth/Register";
 import { Activation } from "./pages/auth/Activation";
 import { Checkout } from "./pages/auth/Checkout";
+import { ForgotPassword } from "./pages/auth/ForgotPassword";
+import { ResetPassword } from "./pages/auth/ResetPassword";
 
 import { Layout } from "./components/layout/Layout";
 import { Dashboard } from "./pages/app/Dashboard";
@@ -38,7 +40,9 @@ const ProtectedRoute = ({ children }) => {
 const MaintenanceScreen = () => (
   <div className="fixed inset-0 z-50 bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
     <div className="text-center max-w-md">
-      <div className="w-20 h-20 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-6"><Wrench className="w-10 h-10 text-yellow-600" /></div>
+      <div className="w-20 h-20 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+        <Wrench className="w-10 h-10 text-yellow-600" />
+      </div>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Under Maintenance</h1>
       <p className="text-sm text-gray-500 dark:text-gray-400">SmartPOS is currently undergoing scheduled maintenance.</p>
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">Please check back in a few minutes.</p>
@@ -62,15 +66,21 @@ export default function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
+        {/* Landing Routes */}
         <Route path="/" element={<LandingHome />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/faqs" element={<FAQs />} />
         <Route path="/help" element={<Help />} />
+        
+        {/* Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/activate" element={<Activation />} />
         <Route path="/checkout" element={<Checkout />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
+        {/* App Routes (Protected) */}
         <Route path="/app" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="dashboard" element={<Dashboard />} />
@@ -88,6 +98,7 @@ export default function App() {
           <Route path="ai-chat" element={<AIChat />} />
         </Route>
 
+        {/* 404 Route */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

@@ -6,7 +6,7 @@ import { Button } from "../../components/ui/Button";
 import { Spinner } from "../../components/ui/Spinner";
 import { formatPrice } from "../../utils/formatCurrency";
 import {
-  Bot, User, Send, Sparkles, Trash2, Zap,
+  User, Send, Trash2, Zap,
   BarChart3, Package, TrendingUp, Lightbulb,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -16,7 +16,7 @@ export const AIChat = () => {
   const [messages, setMessages] = useState([
     {
       role: "ai",
-      text: `Hello ${user?.name?.split(" ")[0] || "there"}! 👋 I'm HDM AI, your business assistant. Ask me about sales, products, inventory, or reports.`,
+      text: `Hello ${user?.name?.split(" ")[0] || "there"}! 👋 I'm 🤖 HDM AI, your star-powered business assistant. Ask me about sales, products, inventory, or reports.`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -58,15 +58,15 @@ export const AIChat = () => {
   };
 
   const clearChat = () => {
-    setMessages([{ role: "ai", text: "Chat cleared. How can I help you?" }]);
+    setMessages([{ role: "ai", text: "✨ Chat cleared! How can I help you today? 🤖" }]);
     setConversationId(null);
   };
 
   const suggestedPrompts = [
-    { icon: TrendingUp, text: "Show me today's sales summary", color: "from-emerald-500 to-teal-600" },
-    { icon: Package, text: "Which products are low in stock?", color: "from-amber-500 to-orange-600" },
-    { icon: BarChart3, text: "What's my best selling product?", color: "from-blue-500 to-indigo-600" },
-    { icon: Lightbulb, text: "Give me business recommendations", color: "from-purple-500 to-violet-600" },
+    { icon: TrendingUp, text: "Show me today's sales summary", color: "from-emerald-500 to-teal-600", emoji: "📈" },
+    { icon: Package, text: "Which products are low in stock?", color: "from-amber-500 to-orange-600", emoji: "📦" },
+    { icon: BarChart3, text: "What's my best selling product?", color: "from-blue-500 to-indigo-600", emoji: "🏆" },
+    { icon: Lightbulb, text: "Give me business recommendations", color: "from-purple-500 to-violet-600", emoji: "💡" },
   ];
 
   return (
@@ -76,17 +76,19 @@ export const AIChat = () => {
         <div className="flex items-center gap-4">
           <div className="relative">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-              <Bot className="w-7 h-7 text-white" />
+              <span className="text-2xl">🤖</span>
             </div>
             <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-950 flex items-center justify-center">
               <Zap className="w-3 h-3 text-white" />
             </div>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">HDM AI</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              HDM AI <span className="text-lg">🤖</span>
+            </h1>
             <p className="text-xs text-gray-500 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              Business Assistant — Ready
+              Star-Powered Business Assistant — Ready
             </p>
           </div>
         </div>
@@ -100,7 +102,7 @@ export const AIChat = () => {
         {messages.length === 1 && (
           <div className="mb-6">
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-blue-500" /> Suggested questions
+              <span className="text-sm">✨</span> Suggested questions
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {suggestedPrompts.map((prompt) => (
@@ -110,7 +112,7 @@ export const AIChat = () => {
                   className="flex items-center gap-3 p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 text-left hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
                 >
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${prompt.color} flex items-center justify-center shadow-lg flex-shrink-0`}>
-                    <prompt.icon className="w-5 h-5 text-white" />
+                    <span className="text-xl">{prompt.emoji}</span>
                   </div>
                   <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {prompt.text}
@@ -133,7 +135,7 @@ export const AIChat = () => {
                   {msg.role === "user" ? (
                     <User className="w-4 h-4 text-white" />
                   ) : (
-                    <Bot className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-lg">🤖</span>
                   )}
                 </div>
                 <div className={`px-5 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm ${
@@ -150,7 +152,7 @@ export const AIChat = () => {
             <div className="flex justify-start">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center shadow-md">
-                  <Bot className="w-4 h-4 text-blue-600" />
+                  <span className="text-lg">🤖</span>
                 </div>
                 <div className="px-5 py-3 bg-white dark:bg-gray-900 rounded-2xl rounded-tl-lg border border-gray-100 dark:border-gray-700 shadow-sm">
                   <div className="flex gap-1.5">
@@ -174,7 +176,7 @@ export const AIChat = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            placeholder="Ask me anything about your business..."
+            placeholder="Ask me anything about your business... 🤖"
             className="w-full pl-5 pr-5 py-3.5 border-2 border-blue-200 dark:border-blue-900 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-sm"
           />
         </div>

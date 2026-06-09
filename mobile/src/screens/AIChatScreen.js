@@ -1,13 +1,22 @@
-// src/screens/AIChatScreen.js — updated header and icon
+// src/screens/AIChatScreen.js
 import React, { useState, useRef } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  FlatList, KeyboardAvoidingView, Platform, StatusBar,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  ActivityIndicator
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import { formatPrice } from "../utils/formatCurrency";
+import ScreenWrapper from "../components/layout/ScreenWrapper";
 
 export default function AIChatScreen() {
   const { user } = useAuth();
@@ -57,109 +66,111 @@ export default function AIChatScreen() {
   ];
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+    <ScreenWrapper scrollable={false}>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.botIcon}>
-            <MaterialCommunityIcons name="robot" size={20} color="#fff" />
-          </View>
-          <View>
-            <Text style={styles.headerTitle}>HDM AI</Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <View style={styles.statusDot} />
-              <Text style={styles.headerSub}>Business Assistant</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.botIcon}>
+              <MaterialCommunityIcons name="robot" size={20} color="#fff" />
+            </View>
+            <View>
+              <Text style={styles.headerTitle}>HDM AI</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <View style={styles.statusDot} />
+                <Text style={styles.headerSub}>Business Assistant</Text>
+              </View>
             </View>
           </View>
+          <TouchableOpacity onPress={clearChat}>
+            <MaterialCommunityIcons name="delete-outline" size={22} color="#94a3b8" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={clearChat}>
-          <MaterialCommunityIcons name="delete-outline" size={22} color="#94a3b8" />
-        </TouchableOpacity>
+
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(_, i) => i.toString()}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 12, gap: 12 }}
+            keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={
+              messages.length === 1 ? (
+                <View style={styles.suggestions}>
+                  <Text style={styles.suggestTitle}>Try asking</Text>
+                  <View style={styles.suggestGrid}>
+                    {suggestions.map((s, i) => (
+                      <TouchableOpacity key={i} style={styles.suggestCard} onPress={() => { setInput(s.text); sendMessage(); }}>
+                        <MaterialCommunityIcons name={s.icon} size={18} color="#3b82f6" />
+                        <Text style={styles.suggestText}>{s.text}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ) : null
+            }
+            renderItem={({ item }) => (
+              <View style={[styles.bubbleRow, item.role === "user" && styles.bubbleRowUser]}>
+                {item.role === "ai" && (
+                  <View style={styles.aiAvatar}>
+                    <MaterialCommunityIcons name="robot" size={14} color="#3b82f6" />
+                  </View>
+                )}
+                <View style={[styles.bubble, item.role === "user" ? styles.bubbleUser : styles.bubbleAi]}>
+                  <Text style={[styles.bubbleText, item.role === "user" && styles.bubbleTextUser]}>{item.text}</Text>
+                </View>
+              </View>
+            )}
+            ListFooterComponent={
+              loading ? (
+                <View style={[styles.bubbleRow, { paddingLeft: 40 }]}>
+                  <View style={styles.typingDots}>
+                    <View style={[styles.dot, { backgroundColor: "#3b82f6" }]} />
+                    <View style={[styles.dot, { backgroundColor: "#3b82f6", marginHorizontal: 4 }]} />
+                    <View style={[styles.dot, { backgroundColor: "#3b82f6" }]} />
+                  </View>
+                </View>
+              ) : null
+            }
+          />
+
+          {/* Input */}
+          <View style={styles.inputArea}>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.textInput}
+                value={input}
+                onChangeText={setInput}
+                placeholder="Ask anything..."
+                placeholderTextColor="#475569"
+                multiline
+                maxLength={2000}
+                returnKeyType="send"
+                blurOnSubmit={false}
+                onSubmitEditing={sendMessage}
+              />
+              <TouchableOpacity
+                style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnOff]}
+                onPress={sendMessage}
+                disabled={!input.trim() || loading}
+              >
+                <MaterialCommunityIcons name="send" size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </View>
-
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(_, i) => i.toString()}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 12, gap: 12 }}
-          keyboardShouldPersistTaps="handled"
-          ListHeaderComponent={
-            messages.length === 1 ? (
-              <View style={styles.suggestions}>
-                <Text style={styles.suggestTitle}>Try asking</Text>
-                <View style={styles.suggestGrid}>
-                  {suggestions.map((s, i) => (
-                    <TouchableOpacity key={i} style={styles.suggestCard} onPress={() => { setInput(s.text); sendMessage(); }}>
-                      <MaterialCommunityIcons name={s.icon} size={18} color="#3b82f6" />
-                      <Text style={styles.suggestText}>{s.text}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            ) : null
-          }
-          renderItem={({ item }) => (
-            <View style={[styles.bubbleRow, item.role === "user" && styles.bubbleRowUser]}>
-              {item.role === "ai" && (
-                <View style={styles.aiAvatar}>
-                  <MaterialCommunityIcons name="robot" size={14} color="#3b82f6" />
-                </View>
-              )}
-              <View style={[styles.bubble, item.role === "user" ? styles.bubbleUser : styles.bubbleAi]}>
-                <Text style={[styles.bubbleText, item.role === "user" && styles.bubbleTextUser]}>{item.text}</Text>
-              </View>
-            </View>
-          )}
-          ListFooterComponent={
-            loading ? (
-              <View style={[styles.bubbleRow, { paddingLeft: 40 }]}>
-                <View style={styles.typingDots}>
-                  <View style={[styles.dot, { backgroundColor: "#3b82f6" }]} />
-                  <View style={[styles.dot, { backgroundColor: "#3b82f6", marginHorizontal: 4 }]} />
-                  <View style={[styles.dot, { backgroundColor: "#3b82f6" }]} />
-                </View>
-              </View>
-            ) : null
-          }
-        />
-
-        {/* Input */}
-        <View style={styles.inputArea}>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.textInput}
-              value={input}
-              onChangeText={setInput}
-              placeholder="Ask anything..."
-              placeholderTextColor="#475569"
-              multiline
-              maxLength={2000}
-              returnKeyType="send"
-              blurOnSubmit={false}
-              onSubmitEditing={sendMessage}
-            />
-            <TouchableOpacity
-              style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnOff]}
-              onPress={sendMessage}
-              disabled={!input.trim() || loading}
-            >
-              <MaterialCommunityIcons name="send" size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </View>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f172a" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingTop: 50, paddingBottom: 12, backgroundColor: "#0f172a", borderBottomWidth: 1, borderBottomColor: "#1e293b" },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12, backgroundColor: "#0f172a", borderBottomWidth: 1, borderBottomColor: "#1e293b" },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   botIcon: {
     width: 38, height: 38, borderRadius: 12,

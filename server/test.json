@@ -1,0 +1,8 @@
+{
+  "from": "davismcintyre5@gmail.com",
+  "fromName": "SmartPOS",
+  "to": "davixhdm@gmail.com",
+  "subject": "Test Email from SmartPOS",
+  "htmlBody": "<h1>Hello!</h1><p>This is a test email from your SmartPOS system via HDM Bridge.</p><p>Email working perfectly! 🎉</p>",
+  "textBody": "Hello! This is a test email from your SmartPOS system via HDM Bridge. Email working perfectly!"
+}

@@ -1,10 +1,10 @@
-// Modal
+// components/ui/Modal.jsx
 import { createPortal } from "react-dom";
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 
 export const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
-  const overlayRef = useRef(null);
+  const modalRef = useRef(null);
 
   useEffect(() => {
     const handleEscape = (e) => { if (e.key === "Escape") onClose(); };
@@ -24,11 +24,14 @@ export const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
 
   return createPortal(
     <div
-      ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+      onClick={onClose}
     >
-      <div className={`relative w-full ${widths[size] || widths.md} max-h-[85vh] bg-white dark:bg-gray-900 rounded-xl shadow-xl flex flex-col`}>
+      <div
+        ref={modalRef}
+        className={`relative w-full ${widths[size] || widths.md} max-h-[85vh] bg-white dark:bg-gray-900 rounded-xl shadow-xl flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">

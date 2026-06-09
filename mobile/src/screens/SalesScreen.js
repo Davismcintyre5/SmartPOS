@@ -7,6 +7,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import api from "../api/axios";
 import { formatPrice } from "../utils/formatCurrency";
+import ScreenWrapper from "../components/layout/ScreenWrapper";
 
 export default function SalesScreen() {
   const [sales, setSales] = useState([]);
@@ -73,70 +74,73 @@ export default function SalesScreen() {
   const getPaymentColor = (method) => method === "mpesa" ? "#16a34a" : method === "card" ? "#2563eb" : "#888";
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sales ({filtered.length})</Text>
-      <TextInput style={styles.searchInput} placeholder="Search receipt or customer..." value={search} onChangeText={setSearch} />
+    <ScreenWrapper scrollable={false}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Sales ({filtered.length})</Text>
+        <TextInput style={styles.searchInput} placeholder="Search receipt or customer..." value={search} onChangeText={setSearch} />
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item._id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.row} onPress={() => setSelectedSale(item)}>
-            <View style={styles.rowInfo}>
-              <Text style={styles.receipt}>{item.receiptNumber}</Text>
-              <Text style={styles.customer}>{item.customerName || "Walk-in"}</Text>
-            </View>
-            <View style={styles.rowCenter}>
-              <Text style={styles.total}>{formatPrice(item.total)}</Text>
-              <View style={styles.badges}>
-                <Text style={[styles.badge, { color: getPaymentColor(item.paymentMethod) }]}>{item.paymentMethod}</Text>
-                <Text style={[styles.badge, { color: getStatusColor(item.status) }]}>{item.status}</Text>
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item._id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.row} onPress={() => setSelectedSale(item)}>
+              <View style={styles.rowInfo}>
+                <Text style={styles.receipt}>{item.receiptNumber}</Text>
+                <Text style={styles.customer}>{item.customerName || "Walk-in"}</Text>
               </View>
-            </View>
-            <View style={styles.rowActions}>
-              <TouchableOpacity onPress={() => setSelectedSale(item)}><MaterialCommunityIcons name="eye" size={18} color="#2563eb" /></TouchableOpacity>
-              {item.status === "completed" && <TouchableOpacity onPress={() => handleRefund(item._id)}><MaterialCommunityIcons name="undo" size={18} color="#d97706" /></TouchableOpacity>}
-              <TouchableOpacity onPress={() => handleDelete(item._id)}><MaterialCommunityIcons name="delete" size={18} color="#ef4444" /></TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
+              <View style={styles.rowCenter}>
+                <Text style={styles.total}>{formatPrice(item.total)}</Text>
+                <View style={styles.badges}>
+                  <Text style={[styles.badge, { color: getPaymentColor(item.paymentMethod) }]}>{item.paymentMethod}</Text>
+                  <Text style={[styles.badge, { color: getStatusColor(item.status) }]}>{item.status}</Text>
+                </View>
+              </View>
+              <View style={styles.rowActions}>
+                <TouchableOpacity onPress={() => setSelectedSale(item)}><MaterialCommunityIcons name="eye" size={18} color="#2563eb" /></TouchableOpacity>
+                {item.status === "completed" && <TouchableOpacity onPress={() => handleRefund(item._id)}><MaterialCommunityIcons name="undo" size={18} color="#d97706" /></TouchableOpacity>}
+                <TouchableOpacity onPress={() => handleDelete(item._id)}><MaterialCommunityIcons name="delete" size={18} color="#ef4444" /></TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          )}
+          ListFooterComponent={<View style={{ height: 20 }} />}
+        />
 
-      {/* Receipt Modal */}
-      <Modal visible={!!selectedSale} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.receiptModal}>
-            {selectedSale && (
-              <ScrollView>
-                <Text style={styles.recBusiness}>{receiptSettings.receiptHeader || "SmartPOS"}</Text>
-                <Text style={styles.recDate}>{new Date(selectedSale.createdAt).toLocaleString()}</Text>
-                <Text style={styles.recNumber}>Receipt: #{selectedSale.receiptNumber?.slice(-6)?.toUpperCase()}</Text>
-                {selectedSale.customerName ? <Text style={styles.recCustomer}>Customer: {selectedSale.customerName}</Text> : null}
-                {selectedSale.cashier?.name ? <Text style={styles.recCashier}>Cashier: {selectedSale.cashier.name}</Text> : null}
-                <View style={styles.divider} />
-                {selectedSale.items?.map((item, i) => (
-                  <View key={i} style={styles.recItemRow}>
-                    <Text style={styles.recItemName}>{item.name || "Item"} x{item.quantity}</Text>
-                    <Text style={styles.recItemPrice}>{formatPrice((item.price || 0) * (item.quantity || 1))}</Text>
-                  </View>
-                ))}
-                <View style={styles.divider} />
-                <View style={styles.recItemRow}><Text>Subtotal</Text><Text>{formatPrice(selectedSale.subtotal || 0)}</Text></View>
-                {selectedSale.discount > 0 && <View style={[styles.recItemRow, { color: "#16a34a" }]}><Text>Discount</Text><Text>-{formatPrice(selectedSale.discount)}</Text></View>}
-                {selectedSale.vatAmount > 0 && <View style={styles.recItemRow}><Text>VAT ({selectedSale.vatRate || 0}%)</Text><Text>{formatPrice(selectedSale.vatAmount)}</Text></View>}
-                <View style={styles.divider} />
-                <View style={styles.recItemRow}><Text style={styles.recTotalLabel}>Total</Text><Text style={styles.recTotalValue}>{formatPrice(selectedSale.total)}</Text></View>
-                <Text style={styles.recPayment}>Payment: {selectedSale.paymentMethod}</Text>
-                {selectedSale.amountPaid > 0 && <Text style={styles.recChange}>Paid: {formatPrice(selectedSale.amountPaid)} | Change: {formatPrice(selectedSale.changeAmount || 0)}</Text>}
-                <Text style={styles.recThanks}>{receiptSettings.receiptFooter || "Thank you!"}</Text>
-                <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedSale(null)}><Text style={styles.closeText}>Close</Text></TouchableOpacity>
-              </ScrollView>
-            )}
+        {/* Receipt Modal */}
+        <Modal visible={!!selectedSale} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.receiptModal}>
+              {selectedSale && (
+                <ScrollView>
+                  <Text style={styles.recBusiness}>{receiptSettings.receiptHeader || "SmartPOS"}</Text>
+                  <Text style={styles.recDate}>{new Date(selectedSale.createdAt).toLocaleString()}</Text>
+                  <Text style={styles.recNumber}>Receipt: #{selectedSale.receiptNumber?.slice(-6)?.toUpperCase()}</Text>
+                  {selectedSale.customerName ? <Text style={styles.recCustomer}>Customer: {selectedSale.customerName}</Text> : null}
+                  {selectedSale.cashier?.name ? <Text style={styles.recCashier}>Cashier: {selectedSale.cashier.name}</Text> : null}
+                  <View style={styles.divider} />
+                  {selectedSale.items?.map((item, i) => (
+                    <View key={i} style={styles.recItemRow}>
+                      <Text style={styles.recItemName}>{item.name || "Item"} x{item.quantity}</Text>
+                      <Text style={styles.recItemPrice}>{formatPrice((item.price || 0) * (item.quantity || 1))}</Text>
+                    </View>
+                  ))}
+                  <View style={styles.divider} />
+                  <View style={styles.recItemRow}><Text>Subtotal</Text><Text>{formatPrice(selectedSale.subtotal || 0)}</Text></View>
+                  {selectedSale.discount > 0 && <View style={[styles.recItemRow, { color: "#16a34a" }]}><Text>Discount</Text><Text>-{formatPrice(selectedSale.discount)}</Text></View>}
+                  {selectedSale.vatAmount > 0 && <View style={styles.recItemRow}><Text>VAT ({selectedSale.vatRate || 0}%)</Text><Text>{formatPrice(selectedSale.vatAmount)}</Text></View>}
+                  <View style={styles.divider} />
+                  <View style={styles.recItemRow}><Text style={styles.recTotalLabel}>Total</Text><Text style={styles.recTotalValue}>{formatPrice(selectedSale.total)}</Text></View>
+                  <Text style={styles.recPayment}>Payment: {selectedSale.paymentMethod}</Text>
+                  {selectedSale.amountPaid > 0 && <Text style={styles.recChange}>Paid: {formatPrice(selectedSale.amountPaid)} | Change: {formatPrice(selectedSale.changeAmount || 0)}</Text>}
+                  <Text style={styles.recThanks}>{receiptSettings.receiptFooter || "Thank you!"}</Text>
+                  <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedSale(null)}><Text style={styles.closeText}>Close</Text></TouchableOpacity>
+                </ScrollView>
+              )}
+            </View>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </ScreenWrapper>
   );
 }
 

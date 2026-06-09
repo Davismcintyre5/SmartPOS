@@ -45,9 +45,18 @@ const approvePayment = async (paymentId, adminId) => {
 
   const now = new Date();
   let expiry = null;
-  if (payment.billingCycle === "monthly") expiry = new Date(now.setMonth(now.getMonth() + 1));
-  else if (payment.billingCycle === "yearly") expiry = new Date(now.setFullYear(now.getFullYear() + 1));
-  else if (payment.billingCycle === "permanent") expiry = new Date("2099-12-31");
+  let planDisplay = "";
+  
+  if (payment.billingCycle === "monthly") {
+    expiry = new Date(now.setMonth(now.getMonth() + 1));
+    planDisplay = "Monthly Subscription";
+  } else if (payment.billingCycle === "yearly") {
+    expiry = new Date(now.setFullYear(now.getFullYear() + 1));
+    planDisplay = "Yearly Subscription";
+  } else if (payment.billingCycle === "permanent") {
+    expiry = new Date("2099-12-31");
+    planDisplay = "Permanent License";
+  }
 
   client.status = "active";
   client.plan = payment.billingCycle;
@@ -62,8 +71,16 @@ const approvePayment = async (paymentId, adminId) => {
     { upsert: true, new: true }
   );
 
+  // Send approval email with license details
   try {
-    await emailService.sendPaymentApproved(client.email, client.businessName, client.licenseKey);
+    await emailService.sendPaymentApproved(
+      client.email, 
+      client.businessName, 
+      client.licenseKey,
+      payment.billingCycle,
+      expiry
+    );
+    logger.info(`Approval email sent to ${client.email}`);
   } catch (err) {
     logger.error("Failed to send approval email", { error: err.message });
   }
@@ -84,6 +101,7 @@ const rejectPayment = async (paymentId, reason) => {
   if (client) {
     try {
       await emailService.sendPaymentRejected(client.email, client.businessName, reason);
+      logger.info(`Rejection email sent to ${client.email}`);
     } catch (err) {
       logger.error("Failed to send rejection email", { error: err.message });
     }

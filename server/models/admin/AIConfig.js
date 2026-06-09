@@ -10,6 +10,7 @@ const aiConfigSchema = new mongoose.Schema(
         },
         enabled: { type: Boolean, default: false },
         apiKey: { type: String, default: "" },
+        baseUrl: { type: String, default: "" },
       },
     ],
     globalDefault: {

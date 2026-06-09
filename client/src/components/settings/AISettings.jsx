@@ -5,7 +5,7 @@ import { apiKeyApi } from "../../api/apiKeyApi";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Spinner } from "../ui/Spinner";
-import { Copy, Check, Trash2, Lock, Plus } from "lucide-react";
+import { Copy, Check, Trash2, Lock, Plus, Server } from "lucide-react";
 
 const providers = [
   { value: "hdm", label: "HDM AI" },
@@ -26,6 +26,11 @@ export const AISettings = () => {
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [success, setSuccess] = useState("");
+
+  // Get base URL from env and remove /api
+  const baseUrl = (import.meta.env.VITE_API_BASE_URL || "smartpos-server.pxxl.click")
+    .replace(/\/api$/, "")
+    .replace(/\/$/, "");
 
   const fetchKeys = () => {
     apiKeyApi.getAll().then((res) => {
@@ -75,7 +80,9 @@ export const AISettings = () => {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">AI & API Keys</h2>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+        🤖 AI & API Keys
+      </h2>
 
       {/* AI Section */}
       <div className="mb-8">
@@ -113,14 +120,19 @@ export const AISettings = () => {
           </div>
         ) : (
           <div className="max-w-md space-y-4">
-            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-              <p className="text-xs text-gray-500 mb-1">Base URL</p>
-              <p className="text-sm font-mono font-medium text-gray-900 dark:text-white">smartpos-server.pxxl.click</p>
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-2 mb-1">
+                <Server className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-300">API Base URL</p>
+              </div>
+              <p className="text-sm font-mono font-medium text-gray-900 dark:text-white break-all">
+                {baseUrl}
+              </p>
             </div>
 
             {newKey && (
               <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-2">New key created — copy it now:</p>
+                <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-2">✨ New key created — copy it now:</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 text-sm bg-white dark:bg-gray-900 px-3 py-2 rounded border break-all">{newKey}</code>
                   <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(newKey); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
@@ -145,7 +157,12 @@ export const AISettings = () => {
                   <button onClick={() => handleRevokeKey(k._id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                 </div>
               ))}
-              {keys.length === 0 && <p className="text-sm text-gray-500 py-4 text-center">No API keys yet.</p>}
+              {keys.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-500">No API keys yet.</p>
+                  <p className="text-xs text-gray-400 mt-1">Generate your first key above ☝️</p>
+                </div>
+              )}
             </div>
           </div>
         )}
