@@ -17,7 +17,7 @@ const pendingRegistrationSchema = new mongoose.Schema({
     enum: ['pending', 'paid', 'expired', 'abandoned'],
     default: 'pending'
   },
-  expiresAt: { type: Date, required: true, index: true }
+  expiresAt: { type: Date, required: true }
 }, { timestamps: true });
 
 pendingRegistrationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

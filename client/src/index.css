@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --card-bg: #ffffff;
+  --input-bg: #ffffff;
+  --sidebar-bg: #ffffff;
+  --sidebar-hover: #f3f4f6;
+
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+
+  --border-color: #e5e7eb;
+  --overlay: rgba(0, 0, 0, 0.45);
+
+  --accent: #1e3a8a;
+  --accent-hover: #1e40af;
+  --accent-fg: #ffffff;
+
+  --success: #047857;
+  --success-hover: #065f46;
+  --success-soft: #ecfdf5;
+
+  --danger: #b91c1c;
+  --danger-hover: #991b1b;
+  --danger-soft: #fef2f2;
+
+  --warning: #b45309;
+  --warning-hover: #92400e;
+  --warning-soft: #fffbeb;
+
+  --info: #1d4ed8;
+  --info-hover: #1e40af;
+  --info-soft: #eff6ff;
+
+  --radius: 0.5rem;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0f172a;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1e293b;
+  --card-bg: #1e293b;
+  --input-bg: #1e293b;
+  --sidebar-bg: #0f172a;
+  --sidebar-hover: #1e293b;
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --border-color: #334155;
+  --overlay: rgba(0, 0, 0, 0.65);
+
+  --success-soft: rgba(4, 120, 87, 0.15);
+  --danger-soft: rgba(185, 28, 28, 0.15);
+  --warning-soft: rgba(180, 83, 9, 0.15);
+  --info-soft: rgba(29, 78, 216, 0.15);
+}
+
+[data-accent="blue"]    { --accent: #1e3a8a; --accent-hover: #1e40af; }
+[data-accent="emerald"] { --accent: #047857; --accent-hover: #065f46; }
+[data-accent="violet"]  { --accent: #6d28d9; --accent-hover: #5b21b6; }
+[data-accent="rose"]    { --accent: #be123c; --accent-hover: #9f1239; }
+[data-accent="amber"]   { --accent: #b45309; --accent-hover: #92400e; }
+
+[data-radius="sm"] { --radius: 0.25rem; }
+[data-radius="md"] { --radius: 0.5rem; }
+[data-radius="lg"] { --radius: 0.75rem; }
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
