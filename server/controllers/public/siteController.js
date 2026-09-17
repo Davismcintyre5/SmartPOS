@@ -2,11 +2,14 @@ const AdminSettings = require('../../models/admin/AdminSettings');
 const Plan = require('../../models/admin/Plan');
 const PaymentMethod = require('../../models/admin/PaymentMethod');
 const Legal = require('../../models/admin/Legal');
+const AiConfig = require('../../models/admin/AiConfig');
 const { getCache, setCache } = require('../../config/redis');
 const { success } = require('../../utils/response');
 const asyncHandler = require('../../utils/asyncHandler');
+const ApiError = require('../../utils/ApiError');
 
 const CACHE_KEY = 'admin:settings';
+const AI_CACHE_KEY = 'admin:ai';
 const SITE_CACHE_KEY = 'public:site';
 const SITE_CACHE_TTL = 300;
 
@@ -19,17 +22,54 @@ async function loadSettings() {
   return settings;
 }
 
+async function loadAi() {
+  let ai = await getCache(AI_CACHE_KEY);
+  if (!ai) {
+    ai = await AiConfig.findById('global').lean();
+    if (ai) await setCache(AI_CACHE_KEY, ai, 300);
+  }
+  return ai;
+}
+
 const getSite = asyncHandler(async (req, res) => {
   const cached = await getCache(SITE_CACHE_KEY);
   if (cached) return success(res, cached, 'Site config');
 
   const settings = await loadSettings();
-  if (!settings) throw new Error('Settings not found. Run seed.');
+  if (!settings) throw ApiError.notFound('Settings not found. Run seed.');
 
-  const [plans, paymentMethods] = await Promise.all([
+  const [plans, paymentMethods, ai] = await Promise.all([
     Plan.find({ active: true }).sort({ position: 1 }).lean(),
-    PaymentMethod.find({ enabled: true }).sort({ position: 1 }).lean()
+    PaymentMethod.find({ enabled: true }).sort({ position: 1 }).lean(),
+    loadAi()
   ]);
+
+  const downloads = (settings.downloads || [])
+    .filter((d) => d.enabled)
+    .sort((a, b) => (a.position || 0) - (b.position || 0))
+    .map((d) => ({
+      id: d.id,
+      name: d.name,
+      type: d.type,
+      version: d.version,
+      arch: d.arch,
+      link: d.link,
+      size: d.size,
+      checksum: d.checksum,
+      minOS: d.minOS,
+      releaseNotes: d.releaseNotes,
+      position: d.position
+    }));
+
+  const aiPublic = {
+    features: {
+      landingAi: ai?.features?.landingAi ?? false,
+      clientAi: ai?.features?.clientAi ?? false,
+      fileUpload: ai?.features?.fileUpload ?? false,
+      outwardApiKeys: ai?.features?.outwardApiKeys ?? false
+    },
+    defaultProvider: ai?.defaultProvider || 'hdm'
+  };
 
   const data = {
     branding: {
@@ -84,6 +124,8 @@ const getSite = asyncHandler(async (req, res) => {
       supportedCurrencies: m.supportedCurrencies,
       position: m.position
     })),
+    downloads,
+    ai: aiPublic,
     maintenanceMessage: settings.maintenanceMessage || 'SmartPOS is under maintenance.',
     timestamp: new Date().toISOString()
   };
@@ -95,7 +137,6 @@ const getSite = asyncHandler(async (req, res) => {
 const getPlans = asyncHandler(async (req, res) => {
   const cached = await getCache(SITE_CACHE_KEY);
   if (cached?.plans) return success(res, cached.plans, 'Plans');
-
   const plans = await Plan.find({ active: true }).sort({ position: 1 }).lean();
   return success(res, plans, 'Plans');
 });
@@ -103,7 +144,6 @@ const getPlans = asyncHandler(async (req, res) => {
 const getPaymentMethods = asyncHandler(async (req, res) => {
   const cached = await getCache(SITE_CACHE_KEY);
   if (cached?.paymentMethods) return success(res, cached.paymentMethods, 'Payment methods');
-
   const methods = await PaymentMethod.find({ enabled: true }).sort({ position: 1 }).lean();
   return success(res, methods, 'Payment methods');
 });
@@ -115,7 +155,7 @@ const getLegal = asyncHandler(async (req, res) => {
 
 const getLegalByType = asyncHandler(async (req, res) => {
   const doc = await Legal.findOne({ type: req.params.type, active: true }).lean();
-  if (!doc) throw new Error('No active version');
+  if (!doc) throw ApiError.notFound('No active version');
   return success(res, doc, 'Legal document');
 });
 

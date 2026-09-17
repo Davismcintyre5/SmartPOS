@@ -1,22 +1,54 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 
-import AppShell from '../components/layout/AppShell';
+import Layout from '../components/layout/app/Layout';
+import PublicLayout from '../components/layout/public/PublicLayout';
 import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
 import ComingSoon from '../pages/ComingSoon';
 
+import Landing from '../pages/public/Landing';
+import Pricing from '../pages/public/Pricing';
+import Register from '../pages/public/Register';
+import Checkout from '../pages/public/Checkout';
+import Renew from '../pages/public/Renew';
+import Login from '../pages/public/Login';
+import ForgotPassword from '../pages/public/ForgotPassword';
+import ResetPassword from '../pages/public/ResetPassword';
+import SignupSuccess from '../pages/public/SignupSuccess';
+import SignupCancelled from '../pages/public/SignupCancelled';
+import Downloads from '../pages/public/Downloads';
+import Help from '../pages/public/Help';
+import FAQs from '../pages/public/FAQs';
+
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route element={<PublicRoute />}>
-        <Route path="/login" element={<ComingSoon title="Login" />} />
-        <Route path="/forgot-password" element={<ComingSoon title="Forgot Password" />} />
-        <Route path="/reset-password" element={<ComingSoon title="Reset Password" />} />
+      {/* Public — marketing + funnel */}
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<Landing />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/renew" element={<Renew />} />
+        <Route path="/signup/success" element={<SignupSuccess />} />
+        <Route path="/signup/cancelled" element={<SignupCancelled />} />
+        <Route path="/downloads" element={<Downloads />} />
+        <Route path="/help" element={<Help />} />
+        <Route path="/faqs" element={<FAQs />} />
       </Route>
 
+      {/* Auth — logged-in users redirected away */}
+      <Route element={<PublicRoute />}>
+        <Route element={<PublicLayout />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+        </Route>
+      </Route>
+
+      {/* Authenticated — the app */}
       <Route element={<ProtectedRoute />}>
-        <Route element={<AppShell />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route element={<Layout />}>
           <Route path="/dashboard" element={<ComingSoon title="Dashboard" />} />
           <Route path="/pos" element={<ComingSoon title="Point of Sale" />} />
           <Route path="/sales" element={<ComingSoon title="Sales" />} />
@@ -46,6 +78,7 @@ export default function AppRoutes() {
         </Route>
       </Route>
 
+      {/* Errors */}
       <Route path="/403" element={<ComingSoon title="Forbidden" code={403} />} />
       <Route path="/500" element={<ComingSoon title="Server Error" code={500} />} />
       <Route path="*" element={<ComingSoon title="Not Found" code={404} />} />

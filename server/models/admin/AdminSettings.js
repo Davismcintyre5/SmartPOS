@@ -1,6 +1,29 @@
 const mongoose = require('mongoose');
 const { SYSTEM_CURRENCIES, STORE_CURRENCIES } = require('../../utils/constants');
 
+const downloadSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true, trim: true },
+  type: {
+    type: String,
+    enum: ['windows', 'macos', 'linux', 'android', 'ios'],
+    required: true
+  },
+  version: { type: String, required: true, trim: true },
+  arch: {
+    type: String,
+    enum: ['x64', 'arm64', 'universal', 'other'],
+    default: 'x64'
+  },
+  link: { type: String, required: true, trim: true },
+  size: { type: Number, default: null },
+  checksum: { type: String, default: null },
+  minOS: { type: String, default: null },
+  releaseNotes: { type: String, default: '' },
+  enabled: { type: Boolean, default: true },
+  position: { type: Number, default: 0 }
+}, { _id: false, timestamps: true });
+
 const adminSettingsSchema = new mongoose.Schema({
   _id: { type: String, default: 'global' },
 
@@ -28,8 +51,8 @@ const adminSettingsSchema = new mongoose.Schema({
 
   email: {
     fromName: { type: String, default: 'SmartPOS' },
-    fromAddress: { type: String, default: 'noreply@smartpos.com' },
-    replyTo: { type: String, default: 'support@smartpos.com' },
+    fromAddress: { type: String, default: '' },
+    replyTo: { type: String, default: '' },
     templates: { type: mongoose.Schema.Types.Mixed, default: {} }
   },
 
@@ -48,6 +71,8 @@ const adminSettingsSchema = new mongoose.Schema({
     emailOnCompletion: { type: Boolean, default: false },
     emailRecipients: { type: [String], default: [] }
   },
+
+  downloads: { type: [downloadSchema], default: [] },
 
   featureFlags: {
     apiAccess: { type: Boolean, default: true },

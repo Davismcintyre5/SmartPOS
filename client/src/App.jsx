@@ -8,7 +8,12 @@ import AppRoutes from './routes/AppRoutes';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}
+    >
       <ThemeProvider>
         <ToastProvider>
           <SiteProvider>

@@ -13,6 +13,51 @@ const ApiError = require('../../utils/ApiError');
 
 const signupController = require('../public/signupController');
 
+async function resolveClientNames(items) {
+  const regIds = items
+    .filter((p) => !p.tenantId && p.metadata?.registrationId)
+    .map((p) => p.metadata.registrationId);
+
+  const registrations = regIds.length
+    ? await PendingRegistration.find({ _id: { $in: regIds } })
+        .select('storeName ownerName ownerEmail')
+        .lean()
+    : [];
+
+  const regMap = new Map(registrations.map((r) => [r._id, r]));
+
+  return items.map((p) => {
+    const reg = p.metadata?.registrationId ? regMap.get(p.metadata.registrationId) : null;
+
+    const clientName = p.tenantId?.name || reg?.storeName || null;
+
+    let tenant = null;
+    if (p.tenantId) {
+      tenant = {
+        _id: p.tenantId._id,
+        name: p.tenantId.name,
+        slug: p.tenantId.slug,
+        ownerEmail: p.tenantId.ownerEmail,
+        pending: false
+      };
+    } else if (reg) {
+      tenant = {
+        _id: null,
+        name: reg.storeName,
+        ownerName: reg.ownerName,
+        ownerEmail: reg.ownerEmail,
+        pending: true
+      };
+    }
+
+    return {
+      ...p,
+      clientName,
+      tenant
+    };
+  });
+}
+
 const list = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
   const { status, method, tenantId } = req.query;
@@ -23,17 +68,30 @@ const list = asyncHandler(async (req, res) => {
   if (tenantId) query.tenantId = tenantId;
 
   const [items, total] = await Promise.all([
-    Payment.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Payment.find(query)
+      .populate('tenantId', 'name slug ownerEmail ownerName')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
     Payment.countDocuments(query)
   ]);
 
-  return paginated(res, items, buildPaginationMeta(total, page, limit));
+  const data = await resolveClientNames(items);
+
+  return paginated(res, data, buildPaginationMeta(total, page, limit));
 });
 
 const getOne = asyncHandler(async (req, res) => {
-  const payment = await Payment.findById(req.params.id).lean();
+  const payment = await Payment.findById(req.params.id)
+    .populate('tenantId', 'name slug ownerEmail ownerName')
+    .lean();
+
   if (!payment) throw ApiError.notFound('Payment not found');
-  return success(res, payment, 'Payment');
+
+  const [resolved] = await resolveClientNames([payment]);
+
+  return success(res, resolved, 'Payment');
 });
 
 const verifyManual = asyncHandler(async (req, res) => {
@@ -50,10 +108,13 @@ const verifyManual = asyncHandler(async (req, res) => {
 
   if (registrationId) {
     const registration = await PendingRegistration.findById(registrationId);
+
     if (registration && registration.status === 'pending') {
       const client = await signupController.createClientAfterPayment(registration, payment);
+
       payment.tenantId = client._id;
       await payment.save();
+
       registration.status = 'paid';
       await registration.save();
 
@@ -114,19 +175,39 @@ const refund = asyncHandler(async (req, res) => {
   if (!payment) throw ApiError.notFound('Payment not found');
   if (payment.status !== 'succeeded') throw ApiError.badRequest('Only succeeded payments can be refunded');
 
+  const { reason } = req.body;
+
   if (payment.method === 'stripe' && payment.reference) {
     await stripeService.refund(payment.reference, payment.amountMinor);
   }
 
   payment.status = 'refunded';
+  payment.metadata = {
+    ...(payment.metadata || {}),
+    refundReason: reason || null,
+    refundedAt: new Date().toISOString()
+  };
   await payment.save();
 
   const client = await Client.findById(payment.tenantId);
   if (client) {
-    await emailService.sendRejection(client, 'Payment refunded').catch(() => {});
+    await emailService.sendRejection(client, reason || 'Payment refunded').catch(() => {});
   }
 
   return success(res, payment, 'Payment refunded');
 });
 
-module.exports = { list, getOne, verifyManual, retry, refund };
+const remove = asyncHandler(async (req, res) => {
+  const payment = await Payment.findById(req.params.id);
+  if (!payment) throw ApiError.notFound('Payment not found');
+
+  if (payment.status === 'succeeded') {
+    throw ApiError.badRequest('Cannot delete a succeeded payment. Refund it instead.');
+  }
+
+  await Payment.deleteOne({ _id: payment._id });
+
+  return success(res, null, 'Payment deleted');
+});
+
+module.exports = { list, getOne, verifyManual, retry, refund, remove };

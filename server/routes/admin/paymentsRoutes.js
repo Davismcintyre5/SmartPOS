@@ -13,5 +13,6 @@ router.get('/:id', paymentsController.getOne);
 router.post('/:id/verify', requireRole(['super_admin', 'admin']), auditLog('payment.verify'), paymentsController.verifyManual);
 router.post('/:id/retry', requireRole(['super_admin', 'admin']), auditLog('payment.retry'), paymentsController.retry);
 router.post('/:id/refund', requireRole(['super_admin']), auditLog('payment.refund'), paymentsController.refund);
+router.delete('/:id', requireRole(['super_admin']), auditLog('payment.delete'), paymentsController.remove);
 
 module.exports = router;

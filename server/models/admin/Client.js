@@ -29,6 +29,8 @@ const clientSchema = new mongoose.Schema({
   ownerPhone: { type: String, default: '' },
   country: { type: String, default: '' },
 
+  licenseKey: { type: String, default: null, index: true },
+
   subscriptionCurrency: { type: String, enum: SYSTEM_CURRENCIES, default: 'USD' },
   storeCurrency: { type: String, enum: STORE_CURRENCIES, default: 'KES' },
 

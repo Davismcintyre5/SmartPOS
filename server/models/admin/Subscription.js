@@ -7,9 +7,13 @@ const subscriptionSchema = new mongoose.Schema({
   cycle: { type: String, enum: ['monthly', 'yearly', 'one-time'], required: true },
   currency: { type: String, required: true },
   amountMinor: { type: Number, required: true },
-  status: { type: String, enum: ['active', 'past_due', 'canceled', 'expired', 'perpetual'], required: true },
+  status: {
+    type: String,
+    enum: ['active', 'past_due', 'canceled', 'expired', 'perpetual'],
+    required: true
+  },
   stripeSubscriptionId: { type: String, default: null },
-  periodStart: { type: Date, required: true },
+  periodStart: { type: Date, default: null },
   periodEnd: { type: Date, default: null },
   canceledAt: { type: Date, default: null }
 }, { timestamps: true });

@@ -29,11 +29,14 @@ async function getSettings() {
   return settings || {};
 }
 
+function generateLicenseKey() {
+  return `SP-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+}
+
 const startTrial = asyncHandler(async (req, res) => {
   const {
     ownerName, ownerEmail, ownerPhone, password,
-    storeName, country,
-    subscriptionCurrency, storeCurrency
+    storeName, country
   } = req.body;
 
   if (!ownerName || !ownerEmail || !password || !storeName) {
@@ -45,10 +48,14 @@ const startTrial = asyncHandler(async (req, res) => {
 
   const settings = await getSettings();
   const trialDays = settings.onboarding?.trialDays ?? 14;
+  const defaultSubscription = settings.currencies?.defaultSubscription || 'USD';
+  const defaultStore = settings.currencies?.defaultStore || 'KES';
 
   const slug = await uniqueSlug(storeName, async (s) =>
     Boolean(await Client.findOne({ slug: s }).lean())
   );
+
+  const licenseKey = generateLicenseKey();
 
   const client = await Client.create({
     name: storeName,
@@ -57,15 +64,16 @@ const startTrial = asyncHandler(async (req, res) => {
     ownerEmail: ownerEmail.toLowerCase(),
     ownerPhone: ownerPhone || '',
     country: country || '',
-    subscriptionCurrency: subscriptionCurrency || settings.currencies?.defaultSubscription || 'USD',
-    storeCurrency: storeCurrency || settings.currencies?.defaultStore || 'KES',
+    subscriptionCurrency: defaultSubscription,
+    storeCurrency: defaultStore,
     plan: 'trial',
     status: 'trialing',
     periodStart: now(),
     periodEnd: addDays(now(), trialDays),
     autoRenew: false,
+    licenseKey,
     settings: {
-      currency: storeCurrency || settings.currencies?.defaultStore || 'KES',
+      currency: defaultStore,
       taxRate: settings.tax?.defaultRate ?? 0,
       taxLabel: settings.tax?.label || 'VAT',
       taxInclusive: settings.tax?.inclusive ?? false
@@ -97,7 +105,8 @@ const startTrial = asyncHandler(async (req, res) => {
       id: user._id,
       name: user.name,
       email: user.email
-    }
+    },
+    licenseKey
   }, 'Trial started');
 });
 
@@ -105,7 +114,6 @@ const registerPaid = asyncHandler(async (req, res) => {
   const {
     ownerName, ownerEmail, ownerPhone, password,
     storeName, country,
-    subscriptionCurrency, storeCurrency,
     plan
   } = req.body;
 
@@ -119,6 +127,10 @@ const registerPaid = asyncHandler(async (req, res) => {
   const planDoc = await Plan.findById(plan).lean();
   if (!planDoc || !planDoc.active) throw ApiError.badRequest('Plan not available');
 
+  const settings = await getSettings();
+  const defaultSubscription = settings.currencies?.defaultSubscription || 'USD';
+  const defaultStore = settings.currencies?.defaultStore || 'KES';
+
   const passwordHash = await hashPassword(password);
   const registrationId = crypto.randomUUID();
 
@@ -130,16 +142,42 @@ const registerPaid = asyncHandler(async (req, res) => {
     passwordHash,
     storeName,
     country: country || '',
-    subscriptionCurrency,
-    storeCurrency,
+    subscriptionCurrency: defaultSubscription,
+    storeCurrency: defaultStore,
     plan,
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000)
+    expiresAt: new Date(Date.now() + 3 * 60 * 60 * 1000)
   });
 
   return success(res, {
     registrationId,
     next: 'checkout'
   }, 'Registration captured — proceed to checkout');
+});
+
+const getRegistration = asyncHandler(async (req, res) => {
+  const registration = await PendingRegistration.findById(req.params.id);
+  if (!registration) throw ApiError.notFound('Registration not found or expired');
+  if (registration.status !== 'pending') throw ApiError.badRequest('Registration already processed');
+
+  const plan = await Plan.findById(registration.plan).lean();
+  if (!plan) throw ApiError.notFound('Plan not found');
+
+  return success(res, {
+    registration: {
+      _id: registration._id,
+      ownerName: registration.ownerName,
+      ownerEmail: registration.ownerEmail,
+      ownerPhone: registration.ownerPhone,
+      storeName: registration.storeName,
+      country: registration.country,
+      subscriptionCurrency: registration.subscriptionCurrency,
+      storeCurrency: registration.storeCurrency,
+      plan: registration.plan,
+      status: registration.status
+    },
+    plan,
+    expiresAt: registration.expiresAt
+  }, 'Registration');
 });
 
 // ── Per-method checkout handlers ────────────────────────
@@ -164,8 +202,13 @@ async function handleStripe({ registration, plan, amountMinor }) {
 
   return {
     method: 'stripe',
+    action: 'redirect',
     checkoutUrl: session.url,
-    sessionId: session.id
+    sessionId: session.id,
+    title: 'Continue to card payment',
+    description: 'You will be redirected to Stripe to complete your payment securely.',
+    amountMinor,
+    currency: registration.subscriptionCurrency
   };
 }
 
@@ -183,8 +226,13 @@ async function handlePaypal({ registration, plan, amountMinor }) {
 
   return {
     method: 'paypal',
+    action: 'redirect',
     checkoutUrl: approveLink,
-    orderId: order.id
+    orderId: order.id,
+    title: 'Continue to PayPal',
+    description: 'You will be redirected to PayPal to complete your payment.',
+    amountMinor,
+    currency: registration.subscriptionCurrency
   };
 }
 
@@ -229,9 +277,20 @@ async function handleMpesaStk({ registration, plan, amountMinor, phone }) {
 
   return {
     method: 'mpesa_stk',
+    action: 'awaiting_pin',
     paymentId: payment._id,
     checkoutRequestId: response.CheckoutRequestID,
-    message: 'Check your phone and enter your M-Pesa PIN to complete payment'
+    phone: mpesaPhone,
+    title: 'Check your phone',
+    description: `We sent an M-Pesa prompt to ${mpesaPhone}. Enter your PIN to complete payment of KES ${amountMajor}.`,
+    steps: [
+      'Look at your phone for the M-Pesa prompt',
+      'Enter your M-Pesa PIN',
+      'Wait for the confirmation SMS',
+      'You can close this page once payment is confirmed'
+    ],
+    amountMinor,
+    currency: 'KES'
   };
 }
 
@@ -247,14 +306,58 @@ async function handleMpesaManual({ registration, plan, amountMinor, method }) {
   const amountMajor = Math.round(amountMinor / 100);
   const ref = String(registration._id).slice(0, 8);
 
-  let instructions = 'Contact support for payment details.';
+  let steps = [];
+  let payTo = null;
+  let title = '';
+  let description = '';
 
   if (method === 'mpesa_send' && config.receivingPhone) {
-    instructions = `Send KES ${amountMajor} to ${config.receivingPhone} (${config.receivingName || 'SmartPOS'}), then submit the M-Pesa code below.`;
+    payTo = config.receivingPhone;
+    title = 'Send Money';
+    description = `Send KES ${amountMajor} to the number below, then submit the M-Pesa code.`;
+    steps = [
+      'Open M-Pesa on your phone',
+      'Select "Send Money"',
+      `Enter number: ${config.receivingPhone}`,
+      `Enter amount: KES ${amountMajor}`,
+      'Enter your M-Pesa PIN',
+      'Confirm and send',
+      'Copy the M-Pesa code from your confirmation SMS',
+      'Paste the code below and submit'
+    ];
   } else if (method === 'mpesa_paybill' && config.businessNumber) {
-    instructions = `Pay KES ${amountMajor} to Paybill ${config.businessNumber}, Account ${config.accountPrefix || 'SMART-'}${ref}, then submit the M-Pesa code below.`;
+    payTo = `${config.businessNumber} · ${config.accountPrefix || 'SMART-'}${ref}`;
+    title = 'Pay via Paybill';
+    description = `Pay KES ${amountMajor} to the Paybill below, then submit the M-Pesa code.`;
+    steps = [
+      'Open M-Pesa on your phone',
+      'Select "Lipa na M-Pesa"',
+      'Select "Pay Bill"',
+      `Enter Business Number: ${config.businessNumber}`,
+      `Enter Account: ${config.accountPrefix || 'SMART-'}${ref}`,
+      `Enter amount: KES ${amountMajor}`,
+      'Enter your M-Pesa PIN',
+      'Confirm payment',
+      'Copy the M-Pesa code from your confirmation SMS',
+      'Paste the code below and submit'
+    ];
   } else if (method === 'mpesa_till' && config.tillNumber) {
-    instructions = `Buy Goods KES ${amountMajor} from Till ${config.tillNumber}, then submit the M-Pesa code below.`;
+    payTo = config.tillNumber;
+    title = 'Buy Goods (Till)';
+    description = `Pay KES ${amountMajor} to the Till below, then submit the M-Pesa code.`;
+    steps = [
+      'Open M-Pesa on your phone',
+      'Select "Lipa na M-Pesa"',
+      'Select "Buy Goods and Services"',
+      `Enter Till Number: ${config.tillNumber}`,
+      `Enter amount: KES ${amountMajor}`,
+      'Enter your M-Pesa PIN',
+      'Confirm payment',
+      'Copy the M-Pesa code from your confirmation SMS',
+      'Paste the code below and submit'
+    ];
+  } else {
+    throw ApiError.badRequest('Payment method not fully configured');
   }
 
   const payment = await Payment.create({
@@ -264,15 +367,19 @@ async function handleMpesaManual({ registration, plan, amountMinor, method }) {
     method,
     status: 'pending',
     purpose: 'signup',
-    metadata: { registrationId: registration._id, instructions }
+    metadata: { registrationId: registration._id, steps, payTo }
   });
 
   return {
     method,
-    paymentId: payment._id,
-    instructions,
     action: 'submit_code',
-    message: 'Complete the payment, then submit the M-Pesa code to verify'
+    paymentId: payment._id,
+    steps,
+    payTo,
+    title,
+    description,
+    amountMinor,
+    currency: 'KES'
   };
 }
 
@@ -352,10 +459,13 @@ const submitMpesaCode = asyncHandler(async (req, res) => {
 
 const createClientAfterPayment = async (registration, payment) => {
   const settings = await getSettings();
+  const planDoc = await Plan.findById(registration.plan).lean();
 
   const slug = await uniqueSlug(registration.storeName, async (s) =>
     Boolean(await Client.findOne({ slug: s }).lean())
   );
+
+  const licenseKey = generateLicenseKey();
 
   const client = await Client.create({
     name: registration.storeName,
@@ -371,6 +481,7 @@ const createClientAfterPayment = async (registration, payment) => {
     periodStart: null,
     periodEnd: null,
     autoRenew: false,
+    licenseKey,
     settings: {
       currency: registration.storeCurrency,
       taxRate: settings.tax?.defaultRate ?? 0,
@@ -395,6 +506,7 @@ const createClientAfterPayment = async (registration, payment) => {
 module.exports = {
   startTrial,
   registerPaid,
+  getRegistration,
   checkout,
   submitMpesaCode,
   createClientAfterPayment

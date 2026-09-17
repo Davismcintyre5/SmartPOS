@@ -54,6 +54,7 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const url = original.url || '';
 
+    // ── 401 — refresh + retry ──
     if (status === 401 && !original._retry && !url.includes('/auth/refresh') && !url.includes('/auth/login')) {
       original._retry = true;
 
@@ -86,13 +87,19 @@ api.interceptors.response.use(
       }
     }
 
+    // ── 402 — subscription expired → renewal ──
     if (status === 402) {
       const path = typeof window !== 'undefined' ? window.location.pathname : '';
-      if (!path.startsWith('/billing')) {
-        window.location.href = '/billing';
+      const onRenew = path.startsWith('/renew');
+      const onLogin = path.startsWith('/login');
+      const onPublicPage = ['/', '/pricing', '/register', '/checkout', '/downloads', '/help', '/faqs'].some((p) => path === p);
+
+      if (!onRenew && !onLogin && !onPublicPage) {
+        window.location.href = '/renew';
       }
     }
 
+    // ── Normalize error shape ──
     const normalized = {
       message:
         error.response?.data?.message ||
