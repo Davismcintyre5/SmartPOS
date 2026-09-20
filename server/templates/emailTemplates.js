@@ -66,15 +66,25 @@ function trialWelcome(d) {
       body: `
         <h1 style="margin:0 0 16px;font-size:22px;">Welcome, ${d.userName}!</h1>
         <p style="margin:0 0 16px;line-height:1.6;">Your ${d.platformName} trial for <strong>${d.storeName}</strong> is now active.</p>
+
         <table cellpadding="0" cellspacing="0" style="margin:16px 0;background:#f9fafb;border-radius:6px;padding:16px;width:100%;">
           <tr><td style="padding:6px 0;font-size:14px;color:#6b7280;">Trial started</td><td style="padding:6px 0;font-size:14px;text-align:right;">${d.trialStartDate}</td></tr>
           <tr><td style="padding:6px 0;font-size:14px;color:#6b7280;">Trial expires</td><td style="padding:6px 0;font-size:14px;text-align:right;font-weight:600;">${d.trialEndDate}</td></tr>
         </table>
+
+        ${d.licenseKey ? `
+        <div style="margin:24px 0;padding:20px;background:#f0f4ff;border:1px solid #1e3a8a;border-radius:8px;">
+          <p style="margin:0 0 8px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Your license key</p>
+          <p style="margin:0;font-family:'Courier New',monospace;font-size:20px;font-weight:700;color:#1e3a8a;letter-spacing:1px;word-break:break-all;">${d.licenseKey}</p>
+          <p style="margin:12px 0 0;font-size:12px;color:#6b7280;line-height:1.6;">Save this key somewhere safe — you'll need it to activate your device. You cannot recover it later.</p>
+        </div>
+        ` : ''}
+
         <p style="margin:24px 0;">${button('Open SmartPOS', d.loginUrl)}</p>
         <p style="margin:16px 0 0;line-height:1.6;color:#6b7280;font-size:14px;">No card required. Upgrade any time before your trial ends.</p>
       `
     }),
-    text: `Welcome, ${d.userName}!\n\nYour ${d.platformName} trial for ${d.storeName} is active.\nTrial started: ${d.trialStartDate}\nTrial expires: ${d.trialEndDate}\n\nLogin: ${d.loginUrl}\n\nSupport: ${d.supportEmail}${d.supportPhone ? ` · ${d.supportPhone}` : ''}`
+    text: `Welcome, ${d.userName}!\n\nYour ${d.platformName} trial for ${d.storeName} is active.\nTrial started: ${d.trialStartDate}\nTrial expires: ${d.trialEndDate}\n${d.licenseKey ? `\nLicense Key: ${d.licenseKey}\nSave this key somewhere safe — you cannot recover it later.\n` : ''}\nLogin: ${d.loginUrl}\n\nSupport: ${d.supportEmail}${d.supportPhone ? ` · ${d.supportPhone}` : ''}`
   };
 }
 
@@ -225,15 +235,25 @@ function approvalWelcome(d) {
       body: `
         <h1 style="margin:0 0 16px;font-size:22px;">Welcome aboard, ${d.userName}!</h1>
         <p style="margin:0 0 16px;line-height:1.6;">Your account for <strong>${d.storeName}</strong> has been approved and is now active.</p>
+
         <table cellpadding="0" cellspacing="0" style="margin:16px 0;background:#f9fafb;border-radius:6px;padding:16px;width:100%;">
           <tr><td style="padding:6px 0;font-size:14px;color:#6b7280;">Plan</td><td style="padding:6px 0;font-size:14px;text-align:right;">${d.planName}</td></tr>
           <tr><td style="padding:6px 0;font-size:14px;color:#6b7280;">Active from</td><td style="padding:6px 0;font-size:14px;text-align:right;">${d.periodStart}</td></tr>
           <tr><td style="padding:6px 0;font-size:14px;color:#6b7280;">Renews on</td><td style="padding:6px 0;font-size:14px;text-align:right;font-weight:600;">${d.periodEnd}</td></tr>
         </table>
+
+        ${d.licenseKey ? `
+        <div style="margin:24px 0;padding:20px;background:#f0f4ff;border:1px solid #1e3a8a;border-radius:8px;">
+          <p style="margin:0 0 8px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Your license key</p>
+          <p style="margin:0;font-family:'Courier New',monospace;font-size:20px;font-weight:700;color:#1e3a8a;letter-spacing:1px;word-break:break-all;">${d.licenseKey}</p>
+          <p style="margin:12px 0 0;font-size:12px;color:#6b7280;line-height:1.6;">Save this key somewhere safe — you'll need it to activate your desktop and mobile devices.</p>
+        </div>
+        ` : ''}
+
         <p style="margin:24px 0;">${button('Log in to SmartPOS', d.loginUrl)}</p>
       `
     }),
-    text: `Welcome ${d.userName}! Your ${d.storeName} account is active.\nPlan: ${d.planName}\nActive from: ${d.periodStart}\nRenews: ${d.periodEnd}\nLogin: ${d.loginUrl}`
+    text: `Welcome ${d.userName}! Your ${d.storeName} account is active.\nPlan: ${d.planName}\nActive from: ${d.periodStart}\nRenews: ${d.periodEnd}\n${d.licenseKey ? `\nLicense Key: ${d.licenseKey}\nSave this key somewhere safe.\n` : ''}\nLogin: ${d.loginUrl}`
   };
 }
 

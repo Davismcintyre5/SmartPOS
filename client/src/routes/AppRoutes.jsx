@@ -5,6 +5,8 @@ import PublicLayout from '../components/layout/public/PublicLayout';
 import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
 import ComingSoon from '../pages/ComingSoon';
+import Dashboard from '../pages/dashboard/Dashboard'; 
+import Settings from '../pages/settings/Settings';
 
 import Landing from '../pages/public/Landing';
 import Pricing from '../pages/public/Pricing';
@@ -49,7 +51,7 @@ export default function AppRoutes() {
       {/* Authenticated — the app */}
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route path="/dashboard" element={<ComingSoon title="Dashboard" />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/pos" element={<ComingSoon title="Point of Sale" />} />
           <Route path="/sales" element={<ComingSoon title="Sales" />} />
           <Route path="/sales/:id" element={<ComingSoon title="Sale Detail" />} />
@@ -66,10 +68,7 @@ export default function AppRoutes() {
             <Route path="/inventory/movements" element={<ComingSoon title="Stock Movements" />} />
             <Route path="/reports" element={<ComingSoon title="Reports" />} />
             <Route path="/reports/daily" element={<ComingSoon title="Daily Report" />} />
-            <Route path="/settings" element={<ComingSoon title="Store Settings" />} />
-            <Route path="/settings/receipt" element={<ComingSoon title="Receipt Settings" />} />
-            <Route path="/settings/tax" element={<ComingSoon title="Tax Settings" />} />
-            <Route path="/settings/theme" element={<ComingSoon title="Theme Settings" />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={['owner']} />}>

@@ -1,4 +1,6 @@
+const { verifyAccessToken } = require('../../utils/jwt');
 const Client = require('../../models/admin/Client');
+const ApiError = require('../../utils/ApiError');
 
 async function auth(req, res, next) {
   try {
@@ -16,7 +18,14 @@ async function auth(req, res, next) {
 
     const tenant = await Client.findById(payload.tenantId);
     if (!tenant) throw ApiError.unauthorized('Tenant not found');
-    if (tenant.status === 'inactive') throw ApiError.forbidden('Account pending approval');
+
+    if (tenant.status === 'rejected') {
+      throw ApiError.forbidden('Account was rejected');
+    }
+
+    if (tenant.status === 'inactive') {
+      throw ApiError.forbidden('Account pending approval');
+    }
 
     req.user = {
       userId: payload.userId,

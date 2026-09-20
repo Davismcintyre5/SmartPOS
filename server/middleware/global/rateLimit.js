@@ -46,9 +46,25 @@ const clientLimiter = rateLimit({
   }
 });
 
+const externalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const auth = req.headers.authorization || '';
+    return auth.slice(7, 23) || req.ip;
+  },
+  message: {
+    success: false,
+    message: 'Rate limit exceeded'
+  }
+});
+
 module.exports = {
   globalLimiter,
   authLimiter,
   adminLimiter,
-  clientLimiter
+  clientLimiter,
+  externalLimiter
 };

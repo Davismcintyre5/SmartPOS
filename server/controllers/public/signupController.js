@@ -30,7 +30,11 @@ async function getSettings() {
 }
 
 function generateLicenseKey() {
-  return `SP-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+  const segments = [];
+  for (let i = 0; i < 4; i++) {
+    segments.push(crypto.randomBytes(2).toString('hex').toUpperCase());
+  }
+  return `SMART-${segments.join('-')}`;
 }
 
 const startTrial = asyncHandler(async (req, res) => {

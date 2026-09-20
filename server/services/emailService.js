@@ -62,6 +62,7 @@ async function sendTrialWelcome(client) {
       storeName: client.name,
       trialStartDate: formatDate(client.periodStart),
       trialEndDate: formatDate(client.periodEnd),
+      licenseKey: client.licenseKey,       
       loginUrl: appUrl('/login')
     }
   });
@@ -155,6 +156,7 @@ async function sendApprovalWelcome(client) {
       planName: client.plan,
       periodStart: formatDate(client.periodStart),
       periodEnd: formatDate(client.periodEnd),
+      licenseKey: client.licenseKey,        // ← add
       loginUrl: appUrl('/login')
     }
   });
