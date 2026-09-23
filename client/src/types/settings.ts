@@ -51,3 +51,33 @@ export interface SettingsResponse {
   enabledPaymentMethods: string[];
   aiFeatures: AiFeatures;
 }
+
+export type MpesaEnv = 'sandbox' | 'production';
+
+export interface MpesaSettings {
+  enabled: boolean;
+  platformEnabled: boolean;
+  effectivelyEnabled: boolean;
+  env: MpesaEnv;
+  shortcode: string;
+  consumerKey: string;
+  consumerSecret: string;
+  passkey: string;
+  configured: boolean;
+  updatedAt: string | null;
+}
+
+export interface UpdateMpesaInput {
+  enabled?: boolean;
+  env?: MpesaEnv;
+  shortcode?: string;
+  consumerKey?: string;
+  consumerSecret?: string;
+  passkey?: string;
+}
+
+export interface TestMpesaResult {
+  ok: boolean;
+  environment?: MpesaEnv;
+  error?: string;
+}

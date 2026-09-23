@@ -199,14 +199,19 @@ export default function POS() {
     }
 
     let globalAmt = 0;
-    if (receiptSettings.globalDiscountEnabled && receiptSettings.globalDiscountRate > 0) {
+    if (
+      receiptSettings.globalDiscountEnabled &&
+      receiptSettings.globalDiscountRate > 0
+    ) {
       for (const item of items) {
         const hasSpecific = receiptSettings.specificDiscounts.some((d) =>
           d.productIds?.some((pid) => String(pid) === String(item._id))
         );
         if (!hasSpecific) {
           globalAmt +=
-            item.price * item.quantity * (receiptSettings.globalDiscountRate / 100);
+            item.price *
+            item.quantity *
+            (receiptSettings.globalDiscountRate / 100);
         }
       }
       globalAmt = whole(globalAmt);
@@ -241,6 +246,41 @@ export default function POS() {
     receiptSettings.vatRate,
   ]);
 
+  const cartDiscountTotal = whole(
+    totals.discount +
+      (globalDiscount?.amount || 0) +
+      appliedDiscounts.reduce((s, d) => s + d.amount, 0)
+  );
+
+  const buildReceiptSale = (
+    sale: Sale,
+    method: 'cash' | 'mpesa' | 'card',
+    paid: number,
+    change: number
+  ): ReceiptSale => ({
+    saleNumber: sale.saleNumber,
+    items: sale.items.map((i) => ({
+      name: i.name,
+      qty: i.qty,
+      price: i.price,
+      subtotal: i.subtotal,
+    })),
+    subtotal: sale.subtotal,
+    discount: sale.discount,
+    appliedDiscounts,
+    globalDiscount,
+    vatEnabled: receiptSettings.vatEnabled,
+    vatRate: receiptSettings.vatRate,
+    vatAmount,
+    total: sale.total,
+    currency: sale.currency,
+    paymentMethod: method,
+    amountPaid: paid,
+    changeAmount: change,
+    customerName: customerName || 'Walk-in Customer',
+    createdAt: sale.createdAt,
+  });
+
   const handlePay = async (
     method: 'cash' | 'mpesa' | 'card',
     amountPaid?: number
@@ -263,11 +303,7 @@ export default function POS() {
           price: whole(i.price),
         })),
         paymentMethod: method,
-        discount: whole(
-          totals.discount +
-            (globalDiscount?.amount || 0) +
-            appliedDiscounts.reduce((s, d) => s + d.amount, 0)
-        ),
+        discount: cartDiscountTotal,
         vatRate: receiptSettings.vatEnabled ? receiptSettings.vatRate : 0,
         vatAmount,
         amountPaid: paid,
@@ -278,29 +314,7 @@ export default function POS() {
       });
 
       const sale = data.data;
-      setLastSale({
-        saleNumber: sale.saleNumber,
-        items: sale.items.map((i) => ({
-          name: i.name,
-          qty: i.qty,
-          price: i.price,
-          subtotal: i.subtotal,
-        })),
-        subtotal: sale.subtotal,
-        discount: sale.discount,
-        appliedDiscounts,
-        globalDiscount,
-        vatEnabled: receiptSettings.vatEnabled,
-        vatRate: receiptSettings.vatRate,
-        vatAmount,
-        total: sale.total,
-        currency: sale.currency,
-        paymentMethod: method,
-        amountPaid: paid,
-        changeAmount: change,
-        customerName: customerName || 'Walk-in Customer',
-        createdAt: sale.createdAt,
-      });
+      setLastSale(buildReceiptSale(sale, method, paid, change));
 
       setShowPayment(false);
       setShowReceipt(true);
@@ -315,6 +329,41 @@ export default function POS() {
     } finally {
       setProcessing(false);
     }
+  };
+
+  const handleMpesaSuccess = (saleId: string, saleNumber: string) => {
+    setLastSale({
+      saleNumber,
+      items: items.map((i) => ({
+        name: i.name,
+        qty: i.quantity,
+        price: i.price,
+        subtotal: i.price * i.quantity,
+      })),
+      subtotal: totals.subtotal,
+      discount: cartDiscountTotal,
+      appliedDiscounts,
+      globalDiscount,
+      vatEnabled: receiptSettings.vatEnabled,
+      vatRate: receiptSettings.vatRate,
+      vatAmount,
+      total,
+      currency,
+      paymentMethod: 'mpesa',
+      amountPaid: total,
+      changeAmount: 0,
+      customerName: customerName || 'Walk-in Customer',
+      createdAt: new Date().toISOString(),
+    });
+
+    setShowPayment(false);
+    setShowReceipt(true);
+    clear();
+    setCustomerName('');
+    setLoyaltyCardNumber('');
+    setResumeId(null);
+    fetchProducts();
+    void saleId;
   };
 
   const handleHold = () => {
@@ -332,11 +381,7 @@ export default function POS() {
           quantity: i.quantity,
           price: whole(i.price),
         })),
-        discount: whole(
-          totals.discount +
-            (globalDiscount?.amount || 0) +
-            appliedDiscounts.reduce((s, d) => s + d.amount, 0)
-        ),
+        discount: cartDiscountTotal,
         vatAmount,
         currency,
         customerName: customerName || undefined,
@@ -420,7 +465,11 @@ export default function POS() {
           }`}
           aria-label={cameraOn ? 'Stop camera' : 'Open camera'}
         >
-          {cameraOn ? <CameraOff className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
+          {cameraOn ? (
+            <CameraOff className="h-5 w-5" />
+          ) : (
+            <Camera className="h-5 w-5" />
+          )}
         </button>
 
         {isMobile && items.length > 0 ? (
@@ -458,7 +507,7 @@ export default function POS() {
 
       {/* Main */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+        <div className="scrollbar-thin flex-1 overflow-y-auto p-4">
           {search.trim() ? (
             <p className="mb-2 text-xs text-muted-foreground">
               {filteredProducts.length} result
@@ -508,7 +557,17 @@ export default function POS() {
         total={total}
         currency={currency}
         processing={processing}
+        cartItems={items.map((i) => ({
+          productId: i._id,
+          quantity: i.quantity,
+          price: whole(i.price),
+        }))}
+        customerName={customerName || 'Walk-in Customer'}
+        discount={cartDiscountTotal}
+        vatAmount={vatAmount}
         onPay={handlePay}
+        onManualMpesa={() => handlePay('mpesa')}
+        onMpesaSuccess={handleMpesaSuccess}
       />
 
       <ReceiptModal

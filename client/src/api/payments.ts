@@ -1,74 +1,56 @@
 import { api } from './axios';
-import type { Payment, InitiatePaymentInput } from '@/types/payment';
-import type { ApiPaginated } from '@/types/api';
 
-export interface PublicPaymentMethod {
-  code: string;
-  label: string;
-  mode: string;
-  config: Record<string, unknown>;
-}
-
-export interface SendStkInput {
-  invoiceNumber: string;
+export interface StkPushInput {
   phone: string;
+  items: Array<{
+    productId: string;
+    quantity: number;
+    price: number;
+  }>;
+  discount?: number;
+  vatAmount?: number;
+  customerName?: string;
 }
 
-export interface SendStkResponse {
+export interface StkPushResponse {
+  saleId: string;
+  saleNumber: string;
+  paymentId: string;
   checkoutRequestId: string;
-  message?: string;
+  message: string;
+  total: number;
+  currency: string;
+}
+
+export type StkStatus = 'pending' | 'success' | 'failed' | 'refunded';
+
+export interface StkStatusResponse {
+  status: StkStatus;
+  paymentId: string;
+  saleId: string | null;
+  saleNumber: string | null;
+  amount: number;
+  currency: string;
+  receipt: string | null;
 }
 
 export const paymentApi = {
-  list: (
-    params: {
-      page?: number;
-      limit?: number;
-      saleId?: string;
-      status?: string;
-    } = {}
-  ) =>
+  stkPush: (payload: StkPushInput) =>
     api
-      .get<ApiPaginated<Payment>>('/client/payments', { params })
-      .then((r) => r.data),
-
-  initiate: (payload: InitiatePaymentInput) =>
-    api
-      .post<{
-        data: {
-          paymentId: string;
-          checkoutRequestId?: string;
-          message?: string;
-        };
-      }>('/client/payments/initiate', payload)
+      .post<{ data: StkPushResponse }>('/client/payments/stk', payload)
       .then((r) => r.data.data),
 
-  recordManual: (payload: {
-    saleId: string;
-    method: string;
-    amount?: number;
-    reference?: string;
-    note?: string;
-    amountReceived?: number;
-  }) =>
+  stkStatus: (checkoutRequestId: string) =>
     api
-      .post<{ data: Payment }>('/client/payments/manual', payload)
+      .get<{ data: StkStatusResponse }>(
+        `/client/payments/stk/${checkoutRequestId}`
+      )
       .then((r) => r.data.data),
 
-  refund: (id: string, reason?: string) =>
+  cancelStk: (checkoutRequestId: string) =>
     api
-      .post<{ data: Payment }>(`/client/payments/${id}/refund`, { reason })
-      .then((r) => r.data.data),
-};
-
-export const publicPaymentApi = {
-  methods: () =>
-    api
-      .get<{ data: PublicPaymentMethod[] }>('/public/payments/methods')
-      .then((r) => r.data.data),
-
-  sendStkForInvoice: (payload: SendStkInput) =>
-    api
-      .post<{ data: SendStkResponse }>('/public/payments/stk/invoice', payload)
+      .delete<{ data: { cancelled: boolean } }>(
+        `/client/payments/stk/${checkoutRequestId}`
+      )
       .then((r) => r.data.data),
 };

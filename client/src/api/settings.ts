@@ -1,5 +1,10 @@
 import { api } from './axios';
 import type { TenantSettings, SettingsResponse } from '@/types/settings';
+import type {
+  MpesaSettings,
+  UpdateMpesaInput,
+  TestMpesaResult,
+} from '@/types/settings';
 
 export type {
   TenantSettings,
@@ -8,6 +13,10 @@ export type {
   SettingsResponse,
   SpecificDiscount,
   SpecificDiscountType,
+  MpesaSettings,
+  MpesaEnv,
+  UpdateMpesaInput,
+  TestMpesaResult,
 } from '@/types/settings';
 
 export const settingsApi = {
@@ -22,4 +31,17 @@ export const settingsApi = {
 
   disablePayment: (code: string) =>
     api.delete(`/client/settings/payments/${code}`).then((r) => r.data.data),
+
+  getMpesa: () =>
+    api.get<{ data: MpesaSettings }>('/client/settings/mpesa').then((r) => r.data.data),
+
+  updateMpesa: (payload: UpdateMpesaInput) =>
+    api
+      .put<{ data: MpesaSettings }>('/client/settings/mpesa', payload)
+      .then((r) => r.data.data),
+
+  testMpesa: () =>
+    api
+      .post<{ data: TestMpesaResult }>('/client/settings/mpesa/test')
+      .then((r) => r.data.data),
 };

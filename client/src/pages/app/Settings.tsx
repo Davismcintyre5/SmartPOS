@@ -8,6 +8,7 @@ import {
   KeyRound,
   CreditCard,
   Users,
+  Smartphone,
 } from 'lucide-react';
 import { cn } from '@/utils/classNames';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,6 +20,7 @@ import { ReceiptSettings } from '@/components/settings/ReceiptSettings';
 import { ApiKeysSettings } from '@/components/settings/ApiKeysSettings';
 import { SubscriptionSettings } from '@/components/settings/SubscriptionSettings';
 import { StaffSettings } from '@/components/settings/StaffSettings';
+import { PaymentSettings } from '@/components/settings/PaymentSettings';
 
 const ALL_TABS = [
   { key: 'profile', label: 'Profile', icon: User, roles: ['owner', 'manager', 'cashier'] },
@@ -26,6 +28,7 @@ const ALL_TABS = [
   { key: 'currency', label: 'Currency', icon: DollarSign, roles: ['owner'] },
   { key: 'tax', label: 'Tax, Discount & Loyalty', icon: Percent, roles: ['owner', 'manager'] },
   { key: 'receipt', label: 'Receipt', icon: Receipt, roles: ['owner', 'manager'] },
+  { key: 'payments', label: 'Payments', icon: Smartphone, roles: ['owner'] },
   { key: 'api-keys', label: 'API Keys', icon: KeyRound, roles: ['owner'] },
   { key: 'subscription', label: 'Subscription', icon: CreditCard, roles: ['owner'] },
   { key: 'staff', label: 'Staff', icon: Users, roles: ['owner'] },
@@ -50,6 +53,8 @@ export default function Settings() {
         return <TaxSettings />;
       case 'receipt':
         return <ReceiptSettings />;
+      case 'payments':
+        return <PaymentSettings />;
       case 'api-keys':
         return <ApiKeysSettings />;
       case 'subscription':
