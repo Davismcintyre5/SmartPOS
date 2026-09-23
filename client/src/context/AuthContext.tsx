@@ -104,15 +104,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!refresh) return;
         try {
           const result = await authApi.refresh(refresh);
-          const nextAccess = (result as { accessToken?: string }).accessToken;
-          const nextRefresh = (result as { refreshToken?: string }).refreshToken;
-          if (nextAccess) {
-            accessTokenRef.current = nextAccess;
-            if (nextRefresh) tokenStorage.setRefresh(nextRefresh);
-            scheduleRefresh(nextAccess);
+          if (result.accessToken) {
+            accessTokenRef.current = result.accessToken;
+            if (result.refreshToken) tokenStorage.setRefresh(result.refreshToken);
+            scheduleRefresh(result.accessToken);
           }
-        } catch {
-          clearSession();
+        } catch (e) {
+          const err = e as NormalizedError;
+          if (err.status === 401 || err.status === 403) {
+            clearSession();
+          }
         }
       }, delay);
     },
@@ -190,29 +191,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    let cancelled = false;
+
     (async () => {
       try {
         const result = await authApi.refresh(refresh);
-        const accessToken = (result as { accessToken?: string }).accessToken;
-        const refreshToken = (result as { refreshToken?: string }).refreshToken;
+        const accessToken = result.accessToken;
+        const refreshToken = result.refreshToken;
+
         if (!accessToken) throw new Error('No access token');
+        if (cancelled) return;
 
         accessTokenRef.current = accessToken;
         if (refreshToken) tokenStorage.setRefresh(refreshToken);
         scheduleRefresh(accessToken);
 
         const me = await authApi.me();
+        if (cancelled) return;
+
         setUser(me.user);
         setTenant(me.tenant);
         setPlan(me.plan);
         setScope(me.scope as AuthScope);
         setInvoice(me.invoice ?? null);
-      } catch {
-        clearSession();
+      } catch (e) {
+        const err = e as NormalizedError;
+        if (err.status === 401 || err.status === 403) {
+          clearSession();
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [clearSession, scheduleRefresh]);
 
   useEffect(() => {

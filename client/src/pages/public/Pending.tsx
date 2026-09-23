@@ -109,11 +109,18 @@ export default function Pending() {
               </p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 {hasStk ? (
-                  <Button fullWidth size="lg" onClick={() => setMpesaOpen(true)}>
+                  <Button
+                    fullWidth
+                    size="lg"
+                    onClick={() => setMpesaOpen(true)}
+                  >
                     Pay with M-Pesa
                   </Button>
                 ) : null}
-                <Link to={`/invoice/${invoice.invoiceNumber}`} className="flex-1">
+                <Link
+                  to={`/invoice/${invoice.invoiceNumber}`}
+                  className="flex-1"
+                >
                   <Button variant="outline" fullWidth size="lg">
                     View invoice
                   </Button>

@@ -27,9 +27,4 @@ export const supplierApi = {
 
   remove: (id: string) =>
     api.delete(`/client/suppliers/${id}`).then((r) => r.data),
-
-  orders: (id: string, params: { page?: number; limit?: number } = {}) =>
-    api
-      .get<ApiPaginated<unknown>>(`/client/suppliers/${id}/orders`, { params })
-      .then((r) => r.data),
 };

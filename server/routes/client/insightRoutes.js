@@ -6,11 +6,10 @@ const { requireActive } = require('../../middleware/client/statusGuard');
 const router = Router();
 
 router.use(requireActive);
-router.use(roles('owner', 'manager'));
 
 router.get('/today', c.today);
-router.get('/range', c.range);
-router.post('/chat', c.chat);
 router.get('/stock-alerts', c.stockAlerts);
+
+router.get('/range', roles('owner', 'manager'), c.range);
 
 module.exports = router;

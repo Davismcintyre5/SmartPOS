@@ -44,7 +44,9 @@ export const invoiceApi = {
 
   remind: (id: string) =>
     api
-      .post<{ data: { sent: boolean } }>(`/client/invoices/${id}/remind`)
+      .post<{ data: { sent: boolean; remindersSent: number } }>(
+        `/client/invoices/${id}/remind`
+      )
       .then((r) => r.data.data),
 
   pdf: (id: string) =>

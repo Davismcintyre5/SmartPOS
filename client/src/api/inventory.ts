@@ -1,6 +1,6 @@
 import { api } from './axios';
-import type { InventoryMovement } from '@/types/inventory';
 import type { Product } from '@/types/product';
+import type { AdjustStockInput, RestockMovement } from '@/types/inventory';
 import type { ApiPaginated } from '@/types/api';
 
 export const inventoryApi = {
@@ -9,9 +9,9 @@ export const inventoryApi = {
       .get<ApiPaginated<Product>>('/client/inventory', { params })
       .then((r) => r.data),
 
-  adjust: (payload: { productId: string; qty: number; reason?: string }) =>
+  adjust: (payload: AdjustStockInput) =>
     api
-      .post<{ data: { productId: string; stock: number } }>(
+      .post<{ data: { productId: string; stock: number; cost: number } }>(
         '/client/inventory/adjust',
         payload
       )
@@ -19,9 +19,19 @@ export const inventoryApi = {
 
   history: (productId: string, params: { page?: number; limit?: number } = {}) =>
     api
-      .get<ApiPaginated<InventoryMovement>>(
-        `/client/inventory/${productId}/history`,
-        { params }
-      )
+      .get<ApiPaginated<unknown>>(`/client/inventory/${productId}/history`, { params })
+      .then((r) => r.data),
+
+  movements: (
+    params: {
+      page?: number;
+      limit?: number;
+      type?: string;
+      productId?: string;
+      refType?: string;
+    } = {}
+  ) =>
+    api
+      .get<ApiPaginated<RestockMovement>>('/client/inventory/movements', { params })
       .then((r) => r.data),
 };

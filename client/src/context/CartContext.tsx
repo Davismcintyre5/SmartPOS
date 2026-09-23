@@ -9,12 +9,14 @@ import {
 import type { Product } from '@/types/product';
 import type { Customer } from '@/types/customer';
 
+const whole = (n: number) => Math.round(Number(n) || 0);
+
 export interface CartItem {
-  productId: string;
+  _id: string;
   name: string;
   sku: string | null;
   price: number;
-  qty: number;
+  quantity: number;
   stock: number;
   imageUrl?: string | null;
 }
@@ -34,10 +36,10 @@ interface CartContextValue {
   currency: string;
   totals: CartTotals;
   addItem: (product: Product, qty?: number) => void;
-  removeItem: (productId: string) => void;
-  setQty: (productId: string, qty: number) => void;
-  incrementQty: (productId: string) => void;
-  decrementQty: (productId: string) => void;
+  removeItem: (id: string) => void;
+  setQuantity: (id: string, qty: number) => void;
+  incrementQty: (id: string) => void;
+  decrementQty: (id: string) => void;
   clear: () => void;
   setCustomer: (customer: Customer | null) => void;
   setDiscount: (amount: number) => void;
@@ -64,23 +66,32 @@ export function CartProvider({ children, currency: currencyProp }: CartProviderP
   }, [currencyProp]);
 
   const addItem = useCallback((product: Product, qty = 1) => {
+    if (!product?.id) return;
+    if (product.stock <= 0) return;
+
     setItems((prev) => {
-      const idx = prev.findIndex((i) => i.productId === product._id);
+      const idx = prev.findIndex((i) => i._id === product.id);
       if (idx >= 0) {
         const next = [...prev];
         const current = next[idx];
-        const capped = Math.min(current.qty + qty, product.stock);
-        next[idx] = { ...current, qty: capped, stock: product.stock, price: product.price };
+        next[idx] = {
+          ...current,
+          quantity: Math.min(current.quantity + qty, product.stock),
+          stock: product.stock,
+          price: product.price,
+          name: product.name,
+          sku: product.sku ?? null,
+        };
         return next;
       }
       return [
         ...prev,
         {
-          productId: product._id,
+          _id: product.id,
           name: product.name,
           sku: product.sku ?? null,
           price: product.price,
-          qty: Math.min(qty, product.stock),
+          quantity: Math.min(qty, product.stock),
           stock: product.stock,
           imageUrl: product.imageUrl ?? null,
         },
@@ -88,38 +99,34 @@ export function CartProvider({ children, currency: currencyProp }: CartProviderP
     });
   }, []);
 
-  const removeItem = useCallback((productId: string) => {
-    setItems((prev) => prev.filter((i) => i.productId !== productId));
+  const removeItem = useCallback((id: string) => {
+    setItems((prev) => prev.filter((i) => i._id !== id));
   }, []);
 
-  const setQty = useCallback((productId: string, qty: number) => {
+  const setQuantity = useCallback((id: string, qty: number) => {
     setItems((prev) => {
-      if (qty <= 0) return prev.filter((i) => i.productId !== productId);
+      if (qty <= 0) return prev.filter((i) => i._id !== id);
       return prev.map((i) =>
-        i.productId === productId
-          ? { ...i, qty: Math.min(qty, i.stock) }
-          : i
+        i._id === id ? { ...i, quantity: Math.min(qty, i.stock) } : i
       );
     });
   }, []);
 
-  const incrementQty = useCallback((productId: string) => {
+  const incrementQty = useCallback((id: string) => {
     setItems((prev) =>
       prev.map((i) =>
-        i.productId === productId
-          ? { ...i, qty: Math.min(i.qty + 1, i.stock) }
-          : i
+        i._id === id ? { ...i, quantity: Math.min(i.quantity + 1, i.stock) } : i
       )
     );
   }, []);
 
-  const decrementQty = useCallback((productId: string) => {
+  const decrementQty = useCallback((id: string) => {
     setItems((prev) => {
-      const target = prev.find((i) => i.productId === productId);
+      const target = prev.find((i) => i._id === id);
       if (!target) return prev;
-      if (target.qty <= 1) return prev.filter((i) => i.productId !== productId);
+      if (target.quantity <= 1) return prev.filter((i) => i._id !== id);
       return prev.map((i) =>
-        i.productId === productId ? { ...i, qty: i.qty - 1 } : i
+        i._id === id ? { ...i, quantity: i.quantity - 1 } : i
       );
     });
   }, []);
@@ -131,14 +138,16 @@ export function CartProvider({ children, currency: currencyProp }: CartProviderP
   }, []);
 
   const setDiscount = useCallback((amount: number) => {
-    setDiscountState(Math.max(0, Number.isFinite(amount) ? amount : 0));
+    setDiscountState(Math.max(0, whole(amount)));
   }, []);
 
   const totals = useMemo<CartTotals>(() => {
-    const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const subtotal = whole(
+      items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+    );
     const appliedDiscount = Math.min(discount, subtotal);
-    const total = Math.max(0, subtotal - appliedDiscount);
-    const itemCount = items.reduce((sum, i) => sum + i.qty, 0);
+    const total = Math.max(0, whole(subtotal - appliedDiscount));
+    const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
     return {
       itemCount,
       subtotal,
@@ -157,7 +166,7 @@ export function CartProvider({ children, currency: currencyProp }: CartProviderP
       totals,
       addItem,
       removeItem,
-      setQty,
+      setQuantity,
       incrementQty,
       decrementQty,
       clear,
@@ -173,7 +182,7 @@ export function CartProvider({ children, currency: currencyProp }: CartProviderP
       totals,
       addItem,
       removeItem,
-      setQty,
+      setQuantity,
       incrementQty,
       decrementQty,
       clear,

@@ -25,26 +25,8 @@ export interface CustomerSnapshot {
   address?: string | null;
 }
 
-export interface PaymentInstruction {
-  code: string;
-  mode: 'auto' | 'manual';
-  title: string;
-  description?: string;
-  steps?: string[];
-  recipient?: Record<string, string | null>;
-  action?: {
-    type: string;
-    label: string;
-    phoneField?: boolean;
-    amount?: number;
-    currency?: string;
-    invoiceNumber?: string;
-  };
-}
-
 export interface Invoice {
-  _id: string;
-  tenantId: string;
+  id: string;
   invoiceNumber: string;
   customerId: string | null;
   customerSnapshot: CustomerSnapshot;
@@ -69,28 +51,9 @@ export interface Invoice {
   remindersSent: number;
   lastReminderAt?: string | null;
   pdfUrl?: string | null;
-  pdfPublicId?: string | null;
   createdBy?: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface PublicInvoice {
-  invoiceNumber: string;
-  customerSnapshot: CustomerSnapshot;
-  items: InvoiceItem[];
-  subtotal: number;
-  discount: number;
-  tax: number;
-  total: number;
-  amountPaid: number;
-  amountDue: number;
-  currency: string;
-  status: string;
-  issuedAt: string;
-  dueDate: string;
-  notes?: string | null;
-  paymentInstructions: PaymentInstruction[];
 }
 
 export interface CreateInvoiceInput {
@@ -102,16 +65,18 @@ export interface CreateInvoiceInput {
     description?: string;
     qty: number;
     unitPrice: number;
-    subtotal: number;
   }>;
-  subtotal: number;
   discount?: number;
   tax?: number;
-  total: number;
-  amountDue: number;
-  currency: string;
   dueDate?: string;
   notes?: string;
+  paymentInstructions?: Array<{
+    method: string;
+    title: string;
+    description?: string;
+    steps?: string[];
+    payTo?: string;
+  }>;
 }
 
 export interface RecordInvoicePaymentInput {
@@ -129,4 +94,28 @@ export interface ListInvoicesParams {
   search?: string;
   from?: string;
   to?: string;
+}
+
+export interface PublicInvoice {
+  invoiceNumber: string;
+  customerSnapshot: CustomerSnapshot;
+  items: InvoiceItem[];
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  amountPaid: number;
+  amountDue: number;
+  currency: string;
+  status: string;
+  issuedAt: string;
+  dueDate: string;
+  notes?: string | null;
+  paymentInstructions: Array<{
+    method: string;
+    title: string;
+    description?: string;
+    steps?: string[];
+    payTo?: string;
+  }>;
 }

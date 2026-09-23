@@ -26,11 +26,21 @@ export function ProtectedRoute() {
 
 export function PublicOnlyRoute() {
   const { isAuthenticated, loading, scope } = useAuth();
+  const location = useLocation();
 
   if (loading) return <PageLoader />;
 
-  if (isAuthenticated) {
-    return <Navigate to={scope === 'pending' ? '/pending' : '/app'} replace />;
+  // Never redirect away from /pending — it's the destination for pending users
+  if (location.pathname === '/pending') {
+    return <Outlet />;
+  }
+
+  if (isAuthenticated && scope === 'active') {
+    return <Navigate to="/app" replace />;
+  }
+
+  if (isAuthenticated && scope === 'pending') {
+    return <Navigate to="/pending" replace />;
   }
 
   return <Outlet />;

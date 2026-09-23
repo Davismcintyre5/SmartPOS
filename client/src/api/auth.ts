@@ -3,6 +3,7 @@ import type {
   RegisterInput,
   LoginResponse,
   RegisterResponse,
+  MeResponse,
   User,
   Tenant,
   Plan,
@@ -23,14 +24,15 @@ export const authApi = {
 
   me: () =>
     api
-      .get<{ data: { user: User; tenant: Tenant; plan: Plan | null; scope: string } }>(
-        '/client/auth/me'
-      )
+      .get<{ data: MeResponse }>('/client/auth/me')
       .then((r) => r.data.data),
 
   refresh: (refreshToken: string) =>
     api
-      .post('/public/auth/refresh', { refreshToken })
+      .post<{ data: { accessToken: string; refreshToken: string } }>(
+        '/public/auth/refresh',
+        { refreshToken }
+      )
       .then((r) => r.data.data),
 
   changePassword: (currentPassword: string, newPassword: string) =>

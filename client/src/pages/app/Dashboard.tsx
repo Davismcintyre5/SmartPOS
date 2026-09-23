@@ -27,6 +27,8 @@ import { formatDateTime } from '@/utils/format';
 import type { StockAlert } from '@/types/insight';
 import type { NormalizedError } from '@/types/api';
 
+const money = (n: number, c: string) => formatMoney(n, c, { decimals: 0 });
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { currency } = useClient();
@@ -47,10 +49,16 @@ export default function Dashboard() {
       try {
         const [todayResult, summaryResult, topResult, salesResult] =
           await Promise.all([
-            dashboardApi.insightsToday().catch(() => ({ latestMetric: null, lowStock: [] })),
+            dashboardApi
+              .insightsToday()
+              .catch(() => ({ latestMetric: null, lowStock: [] })),
             dashboardApi.salesSummary({ period: 'today' }).catch(() => null),
-            dashboardApi.topProducts({ period: 'week', limit: 5 }).catch(() => []),
-            dashboardApi.recentSales(8).catch(() => ({ data: [], meta: null })),
+            dashboardApi
+              .topProducts({ period: 'week', limit: 5 })
+              .catch(() => []),
+            dashboardApi
+              .recentSales(8)
+              .catch(() => ({ data: [], meta: null })),
           ]);
 
         if (cancelled) return;
@@ -116,7 +124,7 @@ export default function Dashboard() {
         <StatCard
           icon={<Banknote className="h-4 w-4" />}
           label="Sales today"
-          value={formatMoney(summary?.totalSales ?? 0, currency)}
+          value={money(summary?.totalSales ?? 0, currency)}
         />
         <StatCard
           icon={<Receipt className="h-4 w-4" />}
@@ -126,7 +134,7 @@ export default function Dashboard() {
         <StatCard
           icon={<TrendingUp className="h-4 w-4" />}
           label="Discounts today"
-          value={formatMoney(summary?.totalDiscount ?? 0, currency)}
+          value={money(summary?.totalDiscount ?? 0, currency)}
         />
         <StatCard
           icon={<AlertTriangle className="h-4 w-4" />}
@@ -141,7 +149,11 @@ export default function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Recent sales</CardTitle>
             <Link to="/app/sales">
-              <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
+              <Button
+                variant="ghost"
+                size="sm"
+                rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
+              >
                 View all
               </Button>
             </Link>
@@ -176,7 +188,7 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-foreground">
-                      {formatMoney(sale.total, sale.currency || currency)}
+                      {money(sale.total, sale.currency || currency)}
                     </p>
                   </Link>
                 ))}
@@ -199,7 +211,10 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {topProducts.map((p, i) => (
-                  <div key={p._id} className="flex items-start justify-between gap-3">
+                  <div
+                    key={p._id || p.name}
+                    className="flex items-start justify-between gap-3"
+                  >
                     <div className="flex min-w-0 items-start gap-3">
                       <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
                         {i + 1}
@@ -214,7 +229,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <p className="shrink-0 text-xs font-medium text-foreground">
-                      {formatMoney(p.revenue, currency)}
+                      {money(p.revenue, currency)}
                     </p>
                   </div>
                 ))}
@@ -232,7 +247,11 @@ export default function Dashboard() {
               Low stock alerts
             </CardTitle>
             <Link to="/app/inventory">
-              <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
+              <Button
+                variant="ghost"
+                size="sm"
+                rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
+              >
                 Manage
               </Button>
             </Link>

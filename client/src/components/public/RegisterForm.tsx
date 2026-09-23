@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { flushSync } from 'react-dom';
 import { Building2, Mail, Lock, Phone, User } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -58,17 +59,20 @@ export function RegisterForm() {
         planId,
       });
 
-      const session: LoginResponse = {
+      const session: LoginResponse & { invoice: typeof result.invoice } = {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         user: result.user,
         tenant: result.tenant,
         plan: result.plan,
         scope: 'pending',
+        invoice: result.invoice ?? null,
       };
 
-      setSession(session);
-      tokenStorage.setRefresh(result.refreshToken);
+      flushSync(() => {
+        setSession(session);
+        tokenStorage.setRefresh(result.refreshToken);
+      });
 
       toast.success({
         title: 'Account created',
@@ -88,7 +92,8 @@ export function RegisterForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       {planId ? (
         <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          Selected plan: <span className="font-medium text-foreground capitalize">{planId}</span>
+          Selected plan:{' '}
+          <span className="font-medium capitalize text-foreground">{planId}</span>
         </div>
       ) : null}
 
@@ -165,7 +170,9 @@ export function RegisterForm() {
             onChange={(e) => setBusinessType(e.target.value)}
             disabled={loading}
           >
-            {businessTypes.length === 0 ? <option value="retail">Retail</option> : null}
+            {businessTypes.length === 0 ? (
+              <option value="retail">Retail</option>
+            ) : null}
             {businessTypes.map((t) => (
               <option key={t} value={t}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}

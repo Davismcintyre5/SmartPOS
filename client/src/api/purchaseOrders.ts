@@ -2,7 +2,8 @@ import { api } from './axios';
 import type {
   PurchaseOrder,
   CreatePurchaseOrderInput,
-  ReceivePurchaseOrderInput,
+  ReceiveInput,
+  ReceiveResponse,
   ListPurchaseOrdersParams,
 } from '@/types/purchaseOrder';
 import type { ApiPaginated } from '@/types/api';
@@ -33,23 +34,16 @@ export const purchaseOrderApi = {
       .post<{ data: PurchaseOrder }>(`/client/purchase-orders/${id}/send`)
       .then((r) => r.data.data),
 
-  receive: (id: string, payload: ReceivePurchaseOrderInput) =>
+  receive: (id: string, payload: ReceiveInput) =>
     api
-      .post<{ data: PurchaseOrder }>(
-        `/client/purchase-orders/${id}/receive`,
-        payload
-      )
+      .post<{ data: ReceiveResponse }>(`/client/purchase-orders/${id}/receive`, payload)
       .then((r) => r.data.data),
 
   cancel: (id: string, reason: string) =>
     api
-      .post<{ data: PurchaseOrder }>(`/client/purchase-orders/${id}/cancel`, {
-        reason,
-      })
+      .post<{ data: PurchaseOrder }>(`/client/purchase-orders/${id}/cancel`, { reason })
       .then((r) => r.data.data),
 
-  pdf: (id: string) =>
-    api
-      .get<{ data: { url: string | null } }>(`/client/purchase-orders/${id}/pdf`)
-      .then((r) => r.data.data),
+  remove: (id: string) =>
+    api.delete(`/client/purchase-orders/${id}`).then((r) => r.data),
 };

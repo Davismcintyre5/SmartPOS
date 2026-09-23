@@ -1,12 +1,14 @@
 export interface Customer {
-  _id: string;
-  tenantId: string;
+  id: string;
   name: string;
   phone?: string | null;
   email?: string | null;
   address?: string | null;
   notes?: string | null;
+  loyaltyCardNumber?: string | null;
   totalSpent: number;
+  loyaltyPoints: number;
+  visitCount: number;
   lastPurchaseAt?: string | null;
   active: boolean;
   createdAt: string;
@@ -19,4 +21,11 @@ export interface CreateCustomerInput {
   email?: string;
   address?: string;
   notes?: string;
+  loyaltyCardNumber?: string;
+}
+
+export interface ListCustomersParams {
+  page?: number;
+  limit?: number;
+  search?: string;
 }

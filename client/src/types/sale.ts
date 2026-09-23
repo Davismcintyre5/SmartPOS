@@ -1,32 +1,35 @@
 export interface SaleItem {
   productId: string | null;
   name: string;
-  sku?: string | null;
+  sku: string | null;
   qty: number;
   price: number;
   subtotal: number;
 }
 
 export interface Sale {
-  _id: string;
-  tenantId: string;
+  id: string;
   saleNumber: string;
   items: SaleItem[];
   subtotal: number;
   discount: number;
   tax: number;
+  vatRate: number;
+  vatAmount: number;
   total: number;
   currency: string;
-  paymentMethod?: string | null;
+  paymentMethod: string | null;
   paymentStatus: string;
-  cashierId?: string | null;
-  customerId?: string | null;
+  amountPaid: number;
+  changeAmount: number;
+  cashierId: string | null;
+  customerId: string | null;
+  customerName: string | null;
+  loyaltyCardNumber: string | null;
   voided: boolean;
-  voidReason?: string | null;
-  voidedBy?: string | null;
-  voidedAt?: string | null;
-  receiptUrl?: string | null;
-  receiptPublicId?: string | null;
+  voidReason: string | null;
+  voidedBy: string | null;
+  voidedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,11 +37,19 @@ export interface Sale {
 export interface CreateSaleInput {
   items: Array<{
     productId: string;
-    qty: number;
+    quantity: number;
+    price?: number;
   }>;
   paymentMethod?: string;
   customerId?: string;
+  customerName?: string;
+  loyaltyCardNumber?: string;
   discount?: number;
+  vatRate?: number;
+  vatAmount?: number;
+  amountPaid?: number;
+  changeAmount?: number;
+  heldSaleId?: string;
 }
 
 export interface ListSalesParams {
@@ -46,7 +57,10 @@ export interface ListSalesParams {
   limit?: number;
   from?: string;
   to?: string;
-  period?: 'today' | 'week' | 'month';
+  period?: 'today' | 'week' | 'month' | 'year' | 'all';
   cashierId?: string;
   paymentMethod?: string;
+  customerId?: string;
+  voided?: boolean;
+  search?: string;
 }

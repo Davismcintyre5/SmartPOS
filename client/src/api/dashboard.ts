@@ -1,26 +1,12 @@
 import { api } from './axios';
 import type { DailyMetric, StockAlert } from '@/types/insight';
 
-export interface DashboardOverview {
-  tenants?: {
-    total: number;
-    active: number;
-    pending: number;
-    suspended: number;
-    rejected: number;
-    expired: number;
-  };
-  users?: number;
-  sales?: number;
-  pendingQueue?: number;
-  aiCalls30d?: number;
-}
-
 export interface SalesSummary {
   totalSales: number;
   totalTransactions: number;
   totalDiscount: number;
   totalTax: number;
+  range?: { start: string; end: string };
 }
 
 export interface TopProduct {

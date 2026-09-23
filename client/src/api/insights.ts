@@ -17,14 +17,6 @@ export const insightApi = {
       .get<{ data: DailyMetric[] }>('/client/insights/range', { params })
       .then((r) => r.data.data),
 
-  chat: (text: string) =>
-    api
-      .post<{ data: { reply: string; tokensUsed: number } }>(
-        '/client/insights/chat',
-        { text }
-      )
-      .then((r) => r.data.data),
-
   stockAlerts: () =>
     api
       .get<{ data: StockAlert[] }>('/client/insights/stock-alerts')

@@ -1,25 +1,45 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-interface Options {
-  onScan: (code: string) => void;
+export interface UseBarcodeScannerOptions {
+  onScan: (barcode: string) => void;
   enabled?: boolean;
   minLength?: number;
   maxDelayMs?: number;
+  beep?: boolean;
 }
 
 export function useBarcodeScanner({
   onScan,
   enabled = true,
   minLength = 3,
-  maxDelayMs = 50,
-}: Options) {
+  maxDelayMs = 100,
+  beep = true,
+}: UseBarcodeScannerOptions) {
   const bufferRef = useRef('');
   const lastKeyRef = useRef(0);
   const onScanRef = useRef(onScan);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     onScanRef.current = onScan;
   }, [onScan]);
+
+  useEffect(() => {
+    if (typeof Audio === 'undefined') return;
+    audioRef.current = new Audio('/sounds/scan-beep.mp3');
+    audioRef.current.preload = 'auto';
+    audioRef.current.volume = 0.6;
+  }, []);
+
+  const playBeep = useCallback(() => {
+    if (!beep || !audioRef.current) return;
+    try {
+      audioRef.current.currentTime = 0;
+      void audioRef.current.play().catch(() => {});
+    } catch {
+      // ignore
+    }
+  }, [beep]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -32,7 +52,7 @@ export function useBarcodeScanner({
     };
 
     const handler = (e: KeyboardEvent) => {
-      if (isEditable(e.target)) return;
+      if (isEditable(e.target) && e.key !== 'Enter') return;
 
       const now = Date.now();
       const elapsed = now - lastKeyRef.current;
@@ -47,6 +67,7 @@ export function useBarcodeScanner({
         bufferRef.current = '';
         if (code.length >= minLength) {
           e.preventDefault();
+          playBeep();
           onScanRef.current(code);
         }
         return;
@@ -58,6 +79,14 @@ export function useBarcodeScanner({
     };
 
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [enabled, minLength, maxDelayMs]);
+    return () => {
+      window.removeEventListener('keydown', handler);
+    };
+  }, [enabled, minLength, maxDelayMs, playBeep]);
+
+  const reset = useCallback(() => {
+    bufferRef.current = '';
+  }, []);
+
+  return { reset };
 }

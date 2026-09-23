@@ -1,19 +1,26 @@
 const DEFAULT_CURRENCY = 'KES';
 
+interface FormatMoneyOptions {
+  decimals?: number;
+}
+
 export function formatMoney(
   amount: number,
-  currency: string = DEFAULT_CURRENCY
+  currency: string = DEFAULT_CURRENCY,
+  options: FormatMoneyOptions = {}
 ): string {
   const safe = Number.isFinite(amount) ? amount : 0;
+  const decimals = options.decimals ?? 2;
+
   try {
     return new Intl.NumberFormat('en-KE', {
       style: 'currency',
       currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
     }).format(safe);
   } catch {
-    return `${currency} ${safe.toFixed(2)}`;
+    return `${currency} ${safe.toFixed(decimals)}`;
   }
 }
 

@@ -1,6 +1,6 @@
 export interface Supplier {
-  _id: string;
-  tenantId: string;
+  id: string;
+  tenantId?: string;
   name: string;
   contactName?: string | null;
   phone?: string | null;

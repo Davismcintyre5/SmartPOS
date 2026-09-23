@@ -6,14 +6,16 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { settingsApi, type SettingsResponse, type TenantSettings } from '@/api/settings';
+import { settingsApi, type SettingsResponse } from '@/api/settings';
 import { useAuth } from '@/hooks/useAuth';
 import type { NormalizedError } from '@/types/api';
+import type { TenantSettings, AiFeatures } from '@/types/settings';
 
 interface ClientContextValue {
   settings: TenantSettings;
   paymentMethods: SettingsResponse['paymentMethods'];
   enabledPaymentMethods: string[];
+  aiFeatures: AiFeatures;
   currency: string;
   loading: boolean;
   error: NormalizedError | null;
@@ -27,12 +29,19 @@ export const ClientContext = createContext<ClientContextValue | null>(null);
 
 const DEFAULT_CURRENCY = 'KES';
 
+const DEFAULT_AI: AiFeatures = {
+  clientAi: false,
+  fileUpload: false,
+  outwardApiKeys: false,
+};
+
 export function ClientProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, tenant } = useAuth();
+  const { isAuthenticated, scope, tenant } = useAuth();
 
   const [settings, setSettings] = useState<TenantSettings>({});
   const [paymentMethods, setPaymentMethods] = useState<SettingsResponse['paymentMethods']>([]);
   const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<string[]>([]);
+  const [aiFeatures, setAiFeatures] = useState<AiFeatures>(DEFAULT_AI);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<NormalizedError | null>(null);
 
@@ -40,6 +49,8 @@ export function ClientProvider({ children }: { children: ReactNode }) {
 
   const reload = useCallback(async () => {
     if (!isAuthenticated) return;
+    if (scope !== 'active') return;
+
     setLoading(true);
     setError(null);
     try {
@@ -47,22 +58,25 @@ export function ClientProvider({ children }: { children: ReactNode }) {
       setSettings(result.settings ?? {});
       setPaymentMethods(result.paymentMethods ?? []);
       setEnabledPaymentMethods(result.enabledPaymentMethods ?? []);
+      setAiFeatures(result.aiFeatures ?? DEFAULT_AI);
     } catch (e) {
-      setError(e as NormalizedError);
+      const err = e as NormalizedError;
+      if (err.status !== 403) setError(err);
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, scope]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && scope === 'active') {
       reload();
     } else {
       setSettings({});
       setPaymentMethods([]);
       setEnabledPaymentMethods([]);
+      setAiFeatures(DEFAULT_AI);
     }
-  }, [isAuthenticated, tenant?.id, reload]);
+  }, [isAuthenticated, scope, tenant?.id, reload]);
 
   const updateSettings = useCallback(async (patch: Partial<TenantSettings>) => {
     const next = await settingsApi.update(patch);
@@ -88,6 +102,7 @@ export function ClientProvider({ children }: { children: ReactNode }) {
       settings,
       paymentMethods,
       enabledPaymentMethods,
+      aiFeatures,
       currency,
       loading,
       error,
@@ -100,6 +115,7 @@ export function ClientProvider({ children }: { children: ReactNode }) {
       settings,
       paymentMethods,
       enabledPaymentMethods,
+      aiFeatures,
       currency,
       loading,
       error,

@@ -12,7 +12,9 @@ export const saleApi = {
     api.get<{ data: Sale }>(`/client/sales/${id}`).then((r) => r.data.data),
 
   create: (payload: CreateSaleInput) =>
-    api.post<{ data: Sale }>('/client/sales', payload).then((r) => r.data.data),
+    api
+      .post<{ data: Sale }>('/client/sales', payload)
+      .then((r) => r.data.data),
 
   void: (id: string, reason: string) =>
     api

@@ -38,6 +38,7 @@ const sizes: Record<ButtonSize, string> = {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
+    type = 'button',
     variant = 'primary',
     size = 'md',
     loading = false,
@@ -54,6 +55,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   return (
     <button
       ref={ref}
+      type={type}
       disabled={disabled || loading}
       className={cn(
         'inline-flex items-center justify-center rounded-lg font-medium transition-colors',
