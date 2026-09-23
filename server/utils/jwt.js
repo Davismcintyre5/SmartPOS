@@ -1,48 +1,62 @@
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const env = require('../config/env');
-const { getCache } = require('../config/redis');
+const { env } = require('../config/env');
+const { ApiError } = require('./apiError');
 
-let expiries = {
-  accessExpires: env.JWT_ACCESS_EXPIRES,
-  refreshExpires: env.JWT_REFRESH_EXPIRES
-};
+const BCRYPT_ROUNDS = 12;
 
-async function refreshExpiries() {
-  try {
-    const settings = await getCache('admin:settings');
-    if (settings?.security) {
-      if (settings.security.accessTokenMinutes) {
-        expiries.accessExpires = `${settings.security.accessTokenMinutes}m`;
-      }
-      if (settings.security.refreshTokenDays) {
-        expiries.refreshExpires = `${settings.security.refreshTokenDays}d`;
-      }
-    }
-  } catch { /* keep env defaults */ }
+async function hashPassword(plain) {
+  if (!plain || plain.length < 8) {
+    throw ApiError.badRequest('WEAK_PASSWORD', 'Password must be at least 8 characters');
+  }
+  return bcrypt.hash(plain, BCRYPT_ROUNDS);
 }
 
-refreshExpiries();
-setInterval(refreshExpiries, 5 * 60 * 1000);
+async function comparePassword(plain, hash) {
+  if (!plain || !hash) return false;
+  return bcrypt.compare(plain, hash);
+}
 
 function signAccessToken(payload) {
-  return jwt.sign(payload, env.JWT_ACCESS_SECRET, { expiresIn: expiries.accessExpires });
+  return jwt.sign(payload, env.jwt.secret, {
+    expiresIn: env.jwt.accessTtl,
+    issuer: 'smartpos',
+  });
 }
 
 function signRefreshToken(payload) {
-  return jwt.sign(payload, env.JWT_REFRESH_SECRET, { expiresIn: expiries.refreshExpires });
+  return jwt.sign(payload, env.jwt.refreshSecret, {
+    expiresIn: env.jwt.refreshTtl,
+    issuer: 'smartpos',
+  });
 }
 
 function verifyAccessToken(token) {
-  return jwt.verify(token, env.JWT_ACCESS_SECRET);
+  try {
+    return jwt.verify(token, env.jwt.secret, { issuer: 'smartpos' });
+  } catch {
+    throw ApiError.unauthorized('INVALID_TOKEN', 'Access token invalid or expired');
+  }
 }
 
 function verifyRefreshToken(token) {
-  return jwt.verify(token, env.JWT_REFRESH_SECRET);
+  try {
+    return jwt.verify(token, env.jwt.refreshSecret, { issuer: 'smartpos' });
+  } catch {
+    throw ApiError.unauthorized('INVALID_REFRESH', 'Refresh token invalid or expired');
+  }
+}
+
+function decodeToken(token) {
+  return jwt.decode(token);
 }
 
 module.exports = {
+  hashPassword,
+  comparePassword,
   signAccessToken,
   signRefreshToken,
   verifyAccessToken,
-  verifyRefreshToken
+  verifyRefreshToken,
+  decodeToken,
 };

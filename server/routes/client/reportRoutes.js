@@ -1,18 +1,16 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
+const c = require('../../controllers/client/reportController');
+const { roles } = require('../../middleware/client/roles');
+const { requireActive } = require('../../middleware/client/statusGuard');
 
-const reportController = require('../../controllers/client/reportController');
-const auth = require('../../middleware/client/auth');
-const period = require('../../middleware/client/period');
-const requireRole = require('../../middleware/client/role');
+const router = Router();
 
-router.use(auth, period);
+router.use(requireActive);
+router.use(roles('owner', 'manager'));
 
-router.get('/daily', reportController.dailySales);
-router.get('/range', reportController.salesByRange);
-router.get('/top-products', reportController.topProducts);
-router.get('/by-cashier', requireRole(['owner', 'manager']), reportController.salesByCashier);
-router.get('/tax-summary', requireRole(['owner', 'manager']), reportController.taxSummary);
-router.get('/dashboard', reportController.dashboard);
+router.get('/sales', c.salesSummary);
+router.get('/top-products', c.topProducts);
+router.get('/staff', c.staff);
+router.get('/export', c.exportData);
 
 module.exports = router;

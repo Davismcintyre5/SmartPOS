@@ -1,9 +1,10 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
+const c = require('../../controllers/admin/dashboardController');
 
-const dashboardController = require('../../controllers/admin/dashboardController');
-const adminAuth = require('../../middleware/admin/adminAuth');
+const router = Router();
 
-router.get('/overview', adminAuth, dashboardController.overview);
+router.get('/overview', c.overview);
+router.get('/recent', c.recent);
+router.get('/charts', c.charts);
 
 module.exports = router;

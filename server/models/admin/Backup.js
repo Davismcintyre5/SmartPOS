@@ -1,49 +1,40 @@
 const mongoose = require('mongoose');
 
-const backupSchema = new mongoose.Schema({
-  type: {
-    type: String,
-    enum: ['database', 'full', 'incremental'],
-    default: 'database'
-  },
-  status: {
-    type: String,
-    enum: ['running', 'success', 'failed'],
-    default: 'running'
-  },
-  startedAt: { type: Date, default: Date.now },
-  completedAt: { type: Date, default: null },
-  durationMs: { type: Number, default: null },
-  sizeBytes: { type: Number, default: null },
-  destination: {
-    type: String,
-    enum: ['cloudinary', 'local', 's3'],
-    default: 'cloudinary'
-  },
-  fileUrl: { type: String, default: null },
-  publicId: { type: String, default: null },
-  fileName: { type: String, default: null },
-  collections: { type: [String], default: [] },
-  counts: { type: mongoose.Schema.Types.Mixed, default: {} },
-  documentCount: { type: Number, default: 0 },
-  error: { type: String, default: null },
-  triggeredBy: {
-    type: String,
-    enum: ['scheduler', 'admin', 'upload'],
-    default: 'scheduler'
-  },
-  triggeredByAdmin: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'AdminUser',
-    default: null
-  },
-  emailedTo: { type: [String], default: [] },
-  emailedAt: { type: Date, default: null },
-  retentionUntil: { type: Date, default: null }
-}, { timestamps: true });
+const TYPES = ['manual', 'auto'];
+const STATUSES = ['running', 'success', 'failed', 'expired'];
 
-backupSchema.index({ createdAt: -1 });
-backupSchema.index({ status: 1 });
-backupSchema.index({ retentionUntil: 1 });
+const schema = new mongoose.Schema(
+  {
+    filename: { type: String, required: true },
+    publicId: { type: String, default: null },
+    url: { type: String, default: null },
+    sizeBytes: { type: Number, default: 0 },
+    checksum: { type: String, default: null },
+    type: { type: String, enum: TYPES, required: true },
+    status: { type: String, enum: STATUSES, default: 'running' },
+    startedAt: { type: Date, default: Date.now },
+    completedAt: { type: Date, default: null },
+    durationMs: { type: Number, default: null },
+    triggeredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'SuperAdmin', default: null },
+    error: { type: String, default: null },
+    collections: { type: [String], default: [] },
+    recordCounts: { type: Object, default: {} },
+    retentionUntil: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model('Backup', backupSchema);
+schema.index({ status: 1, startedAt: -1 });
+schema.index({ type: 1, startedAt: -1 });
+schema.index({ retentionUntil: 1 });
+schema.index({ publicId: 1 }, { sparse: true });
+
+schema.set('toJSON', {
+  virtuals: true,
+  transform: (_doc, ret) => {
+    delete ret.__v;
+    return ret;
+  },
+});
+
+module.exports = mongoose.model('Backup', schema);

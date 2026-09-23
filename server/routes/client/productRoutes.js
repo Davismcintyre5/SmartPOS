@@ -1,24 +1,18 @@
-const express = require('express');
-const multer = require('multer');
-const router = express.Router();
+const { Router } = require('express');
+const c = require('../../controllers/client/productController');
+const { roles } = require('../../middleware/client/roles');
+const { requireActive } = require('../../middleware/client/statusGuard');
+const { uploadSingle } = require('../../middleware/global/upload');
 
-const productController = require('../../controllers/client/productController');
-const auth = require('../../middleware/client/auth');
-const period = require('../../middleware/client/period');
-const requireRole = require('../../middleware/client/role');
+const router = Router();
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+router.use(requireActive);
 
-router.use(auth, period);
-
-router.get('/', productController.list);
-router.get('/barcode/:code', productController.findByBarcode);
-router.post('/', requireRole(['owner', 'manager']), productController.create);
-router.get('/export', productController.exportCsv);
-router.post('/import', requireRole(['owner', 'manager']), upload.single('file'), productController.importCsv);
-router.get('/:id', productController.getOne);
-router.put('/:id', requireRole(['owner', 'manager']), productController.update);
-router.delete('/:id', requireRole(['owner', 'manager']), productController.remove);
-router.post('/:id/image', requireRole(['owner', 'manager']), upload.single('file'), productController.uploadImage);
+router.get('/', c.list);
+router.get('/:id', c.get);
+router.post('/', roles('owner', 'manager'), c.create);
+router.patch('/:id', roles('owner', 'manager'), c.update);
+router.delete('/:id', roles('owner', 'manager'), c.remove);
+router.post('/upload-image', roles('owner', 'manager'), uploadSingle, c.uploadImage);
 
 module.exports = router;

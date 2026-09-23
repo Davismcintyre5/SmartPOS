@@ -1,34 +1,14 @@
 const axios = require('axios');
-const env = require('../config/env');
-const logger = require('../utils/logger');
-
-const BASE = env.MPESA_ENV === 'production'
-  ? 'https://api.safaricom.co.ke'
-  : 'https://sandbox.safaricom.co.ke';
-
-let cachedToken = null;
-let tokenExpiry = 0;
-
-async function getAccessToken() {
-  if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
-
-  const auth = Buffer.from(`${env.MPESA_CONSUMER_KEY}:${env.MPESA_CONSUMER_SECRET}`).toString('base64');
-
-  const { data } = await axios.get(
-    `${BASE}/oauth/v1/generate?grant_type=client_credentials`,
-    { headers: { Authorization: `Basic ${auth}` } }
-  );
-
-  cachedToken = data.access_token;
-  tokenExpiry = Date.now() + (parseInt(data.expires_in, 10) - 60) * 1000;
-  return cachedToken;
-}
+const { mpesa } = require('../config/mpesa');
+const cacheService = require('./cacheService');
+const { ApiError } = require('../utils/apiError');
+const { logger } = require('../utils/logger');
 
 function timestamp() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   return (
-    d.getFullYear().toString() +
+    d.getFullYear() +
     pad(d.getMonth() + 1) +
     pad(d.getDate()) +
     pad(d.getHours()) +
@@ -37,99 +17,120 @@ function timestamp() {
   );
 }
 
-async function stkPush({ phone, amount, reference, description }) {
+function password(shortcode, passkey, ts) {
+  return Buffer.from(`${shortcode}${passkey}${ts}`).toString('base64');
+}
+
+async function getAccessToken() {
+  const cacheKey = 'mpesa:token';
+  const cached = await cacheService.get(cacheKey);
+  if (cached) return cached;
+
+  const auth = Buffer.from(`${mpesa.consumerKey}:${mpesa.consumerSecret}`).toString('base64');
+
+  try {
+    const res = await axios.get(`${mpesa.baseUrl}${mpesa.endpoints.OAUTH}`, {
+      headers: { Authorization: `Basic ${auth}` },
+      timeout: 15000,
+    });
+    const token = res.data.access_token;
+    await cacheService.set(cacheKey, token, 3000);
+    return token;
+  } catch (err) {
+    logger.error({ err: err.message }, 'mpesa token failed');
+    throw ApiError.internal('MPESA_AUTH', 'M-Pesa authentication failed');
+  }
+}
+
+async function stkPush({ phone, amount, accountRef, description }) {
   const token = await getAccessToken();
   const ts = timestamp();
-  const password = Buffer.from(`${env.MPESA_SHORTCODE}${env.MPESA_PASSKEY}${ts}`).toString('base64');
+  const pwd = password(mpesa.shortcode, mpesa.passkey, ts);
 
-  const { data } = await axios.post(
-    `${BASE}/mpesa/stkpush/v1/processrequest`,
-    {
-      BusinessShortCode: env.MPESA_SHORTCODE,
-      Password: password,
-      Timestamp: ts,
-      TransactionType: 'CustomerPayBillOnline',
-      Amount: amount,
-      PartyA: phone,
-      PartyB: env.MPESA_SHORTCODE,
-      PhoneNumber: phone,
-      CallBackURL: env.MPESA_CALLBACK_URL,
-      AccountReference: reference,
-      TransactionDesc: description || 'SmartPOS payment'
-    },
-    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-  );
+  try {
+    const res = await axios.post(
+      `${mpesa.baseUrl}${mpesa.endpoints.STK_PUSH}`,
+      {
+        BusinessShortCode: mpesa.shortcode,
+        Password: pwd,
+        Timestamp: ts,
+        TransactionType: 'CustomerPayBillOnline',
+        Amount: Math.round(amount),
+        PartyA: phone,
+        PartyB: mpesa.shortcode,
+        PhoneNumber: phone,
+        CallBackURL: mpesa.callbackUrl,
+        AccountReference: accountRef,
+        TransactionDesc: description,
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 20000,
+      }
+    );
 
-  return data;
+    return {
+      success: true,
+      checkoutRequestId: res.data.CheckoutRequestID,
+      merchantRequestId: res.data.MerchantRequestID,
+      customerMessage: res.data.CustomerMessage,
+      raw: res.data,
+    };
+  } catch (err) {
+    logger.error({ err: err.message }, 'mpesa stk push failed');
+    throw ApiError.badRequest('MPESA_STK_FAILED', 'Could not initiate M-Pesa payment');
+  }
 }
 
-async function queryStatus({ checkoutRequestId }) {
+async function queryStkStatus(checkoutRequestId) {
   const token = await getAccessToken();
   const ts = timestamp();
-  const password = Buffer.from(`${env.MPESA_SHORTCODE}${env.MPESA_PASSKEY}${ts}`).toString('base64');
+  const pwd = password(mpesa.shortcode, mpesa.passkey, ts);
 
-  const { data } = await axios.post(
-    `${BASE}/mpesa/stkpushquery/v1/query`,
-    {
-      BusinessShortCode: env.MPESA_SHORTCODE,
-      Password: password,
-      Timestamp: ts,
-      CheckoutRequestID: checkoutRequestId
-    },
-    { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-  );
-
-  return data;
+  try {
+    const res = await axios.post(
+      `${mpesa.baseUrl}${mpesa.endpoints.STK_QUERY}`,
+      {
+        BusinessShortCode: mpesa.shortcode,
+        Password: pwd,
+        Timestamp: ts,
+        CheckoutRequestID: checkoutRequestId,
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 15000,
+      }
+    );
+    return { success: true, raw: res.data };
+  } catch (err) {
+    logger.error({ err: err.message }, 'mpesa query failed');
+    return { success: false, error: err.message };
+  }
 }
 
-function parseStkCallback(payload) {
-  const cb = payload?.Body?.stkCallback;
-  if (!cb) return null;
+function parseCallback(payload) {
+  const stk = payload?.Body?.stkCallback;
+  if (!stk) return { success: false, error: 'Invalid callback shape' };
 
-  const success = cb.ResultCode === 0;
-  const items = cb.CallbackMetadata?.Item || [];
-  const find = (name) => items.find((i) => i.Name === name)?.Value;
+  const resultCode = stk.ResultCode;
+  const items = stk.CallbackMetadata?.Item || [];
+  const pick = (name) => items.find((i) => i.Name === name)?.Value;
 
   return {
-    success,
-    resultCode: cb.ResultCode,
-    resultDesc: cb.ResultDesc,
-    merchantRequestId: cb.MerchantRequestID,
-    checkoutRequestId: cb.CheckoutRequestID,
-    amount: find('Amount'),
-    mpesaReceiptNumber: find('MpesaReceiptNumber'),
-    phone: find('PhoneNumber'),
-    transactionDate: find('TransactionDate')
+    success: resultCode === 0,
+    resultCode,
+    resultDesc: stk.ResultDesc,
+    checkoutRequestId: stk.CheckoutRequestID,
+    merchantRequestId: stk.MerchantRequestID,
+    amount: pick('Amount'),
+    mpesaReceiptNumber: pick('MpesaReceiptNumber'),
+    transactionDate: pick('TransactionDate'),
+    phone: pick('PhoneNumber'),
   };
-}
-
-function parseC2bCallback(payload) {
-  return {
-    transactionType: payload.TransactionType,
-    transId: payload.TransID,
-    transTime: payload.TransTime,
-    transAmount: payload.TransAmount,
-    businessShortCode: payload.BusinessShortCode,
-    billRefNumber: payload.BillRefNumber,
-    invoiceNumber: payload.InvoiceNumber,
-    phone: payload.MSISDN,
-    name: payload.FirstName ? `${payload.FirstName} ${payload.LastName || ''}`.trim() : null
-  };
-}
-
-function formatPhone(phone) {
-  const digits = String(phone).replace(/\D/g, '');
-  if (digits.startsWith('0')) return `254${digits.slice(1)}`;
-  if (digits.startsWith('254')) return digits;
-  if (digits.startsWith('7') || digits.startsWith('1')) return `254${digits}`;
-  return digits;
 }
 
 module.exports = {
-  getAccessToken,
   stkPush,
-  queryStatus,
-  parseStkCallback,
-  parseC2bCallback,
-  formatPhone
+  queryStkStatus,
+  parseCallback,
 };

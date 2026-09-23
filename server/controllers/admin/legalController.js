@@ -1,93 +1,67 @@
-const Legal = require('../../models/admin/Legal');
-const Client = require('../../models/admin/Client');
-const { success, created } = require('../../utils/response');
-const asyncHandler = require('../../utils/asyncHandler');
-const ApiError = require('../../utils/ApiError');
+const { asyncHandler } = require('../../utils/asyncHandler');
+const { ok, created, noContent } = require('../../utils/apiResponse');
+const { assertObjectId } = require('../../utils/validateObjectId');
+const legalService = require('../../services/legalService');
+
+const TYPES = ['terms', 'privacy', 'dpa', 'refund', 'aup'];
 
 const list = asyncHandler(async (req, res) => {
-  const { type, active } = req.query;
-  const query = {};
-  if (type) query.type = type;
-  if (active !== undefined) query.active = active === 'true';
+  const { type } = req.query;
 
-  const items = await Legal.find(query).sort({ createdAt: -1 }).lean();
-  return success(res, items, 'Legal documents');
+  if (type) {
+    const docs = await legalService.listByType(type);
+    return ok(res, docs);
+  }
+
+  const all = {};
+  for (const t of TYPES) all[t] = await legalService.listByType(t);
+  return ok(res, all);
 });
 
-const getOne = asyncHandler(async (req, res) => {
-  const doc = await Legal.findById(req.params.id).lean();
-  if (!doc) throw ApiError.notFound('Legal document not found');
-  return success(res, doc, 'Legal document');
-});
-
-const create = asyncHandler(async (req, res) => {
-  const doc = await Legal.create(req.body);
-  return created(res, doc, 'Legal document created');
-});
-
-const update = asyncHandler(async (req, res) => {
-  const doc = await Legal.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-  if (!doc) throw ApiError.notFound('Legal document not found');
-  return success(res, doc, 'Legal document updated');
-});
-
-const activate = asyncHandler(async (req, res) => {
-  const doc = await Legal.findById(req.params.id);
-  if (!doc) throw ApiError.notFound('Legal document not found');
-
-  await Legal.updateMany({ type: doc.type }, { active: false });
-  doc.active = true;
-  await doc.save();
-
-  return success(res, doc, 'Legal document activated');
-});
-
-const deactivate = asyncHandler(async (req, res) => {
-  const doc = await Legal.findById(req.params.id);
-  if (!doc) throw ApiError.notFound('Legal document not found');
-
-  doc.active = false;
-  await doc.save();
-
-  return success(res, doc, 'Legal document deactivated');
-});
-
-const history = asyncHandler(async (req, res) => {
-  const items = await Legal.find({ type: req.params.type }).sort({ createdAt: -1 }).lean();
-  return success(res, items, 'Legal history');
-});
-
-const acceptances = asyncHandler(async (req, res) => {
-  const items = await Client.find({
-    $or: [
-      { acceptedTermsVersion: { $exists: true, $ne: null } },
-      { acceptedPrivacyVersion: { $exists: true, $ne: null } }
-    ]
-  }).select('name ownerEmail acceptedTermsVersion acceptedTermsAt acceptedPrivacyVersion acceptedPrivacyAt').lean();
-
-  return success(res, items, 'Acceptances');
+const getByType = asyncHandler(async (req, res) => {
+  const docs = await legalService.listByType(req.params.type);
+  return ok(res, docs);
 });
 
 const getCurrent = asyncHandler(async (req, res) => {
-  const doc = await Legal.findOne({ type: req.params.type, active: true }).lean();
-  if (!doc) throw ApiError.notFound('No active version');
-  return success(res, doc, 'Current legal document');
+  const doc = await legalService.getCurrent(req.params.type);
+  return ok(res, doc);
 });
 
-const getAll = asyncHandler(async (req, res) => {
-  const items = await Legal.find({ active: true }).lean();
-  return success(res, items, 'Active legal documents');
+const getByVersion = asyncHandler(async (req, res) => {
+  const doc = await legalService.getByVersion(req.params.type, req.params.version);
+  return ok(res, doc);
+});
+
+const publish = asyncHandler(async (req, res) => {
+  const doc = await legalService.publish({
+    type: req.params.type,
+    title: req.body.title,
+    content: req.body.content,
+    effectiveAt: req.body.effectiveAt,
+    adminId: req.admin.id,
+  });
+  return created(res, doc);
+});
+
+const update = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, 'legalId');
+  const doc = await legalService.updateDraft(req.params.id, req.body);
+  return ok(res, doc);
+});
+
+const remove = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, 'legalId');
+  await legalService.removeDraft(req.params.id);
+  return noContent(res);
 });
 
 module.exports = {
   list,
-  getOne,
-  create,
-  update,
-  activate,
-  deactivate,
-  history,
-  acceptances,
+  getByType,
   getCurrent,
-  getAll
+  getByVersion,
+  publish,
+  update,
+  remove,
 };

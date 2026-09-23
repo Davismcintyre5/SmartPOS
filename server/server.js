@@ -1,195 +1,169 @@
-require('./scripts/dnsSet');
-
+require('dotenv/config');
 const express = require('express');
-const env = require('./config/env');
-const logger = require('./utils/logger');
-const { connectDB, disconnectDB } = require('./config/db');
-const { connectRedis, disconnectRedis } = require('./config/redis');
-const { startSchedulers, stopSchedulers } = require('./schedulers');
 
-const corsMiddleware = require('./middleware/global/cors');
-const helmetMiddleware = require('./middleware/global/helmet');
-const { globalLimiter } = require('./middleware/global/rateLimit');
-const requestLogger = require('./middleware/global/requestLogger');
-const maintenance = require('./middleware/global/maintenance');
-const errorHandler = require('./middleware/global/errorHandler');
-const notFound = require('./middleware/global/notFound');
+const pkg = require('./package.json');
+const { env } = require('./config/env');
+const { connectDB, disconnectDB, mongoose } = require('./config/db');
+const { connectRedis, disconnectRedis, getRedis } = require('./config/redis');
+const { logger } = require('./utils/logger');
+
+const { requestId } = require('./middleware/global/requestId');
+const { requestLogger } = require('./middleware/global/requestLogger');
+const { helmetMw } = require('./middleware/global/helmet');
+const { corsMw } = require('./middleware/global/cors');
+const { bodyParser } = require('./middleware/global/bodyParser');
+const { rateLimitMw } = require('./middleware/global/rateLimit');
+const { sanitize } = require('./middleware/global/sanitize');
+const { notFound } = require('./middleware/global/notFound');
+const { errorHandler } = require('./middleware/global/errorHandler');
 
 const routes = require('./routes');
+const { startSchedulers } = require('./schedulers');
 
-let server;
+const C = {
+  reset: '\x1b[0m',
+  dim: '\x1b[2m',
+  bold: '\x1b[1m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+};
 
-const B = '\x1b[34m';
-const C = '\x1b[36m';
-const G = '\x1b[32m';
-const Y = '\x1b[33m';
-const R = '\x1b[31m';
-const D = '\x1b[2m';
-const X = '\x1b[0m';
-
-const BANNER = `
-${B}  ███████╗███╗   ███╗ █████╗ ██████╗ ████████╗██████╗  ██████╗ ███████╗${X}
-${B}  ██╔════╝████╗ ████║██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██╔═══██╗██╔════╝${X}
-${B}  ███████╗██╔████╔██║███████║██████╔╝   ██║   ██████╔╝██║   ██║███████╗${X}
-${B}  ╚════██║██║╚██╔╝██║██╔══██║██╔══██╗   ██║   ██╔═══╝ ██║   ██║╚════██║${X}
-${B}  ███████║██║ ╚═╝ ██║██║  ██║██║  ██║   ██║   ██║     ╚██████╔╝███████║${X}
-${B}  ╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝      ╚═════╝ ╚══════╝${X}
-`;
-
-function printBanner() {
-  console.log(BANNER);
-  console.log(`${C}  SmartPOS API Server${X}`);
-  console.log(`${D}  Owner: Davis Okoth · Company: HDM${X}`);
-  console.log(`${D}  ─────────────────────────────────────────${X}`);
-  console.log(`  Environment : ${Y}${env.NODE_ENV}${X}`);
-  console.log(`  Port        : ${Y}${env.PORT}${X}`);
-  console.log(`  Started     : ${D}${new Date().toISOString()}${X}`);
-  console.log(`${D}  ─────────────────────────────────────────${X}`);
-  console.log('');
+function stripAnsi(str) {
+  return String(str).replace(/\x1b\[[0-9;]*m/g, '');
 }
 
-function printShutdown() {
-  console.log('');
-  console.log(`${D}  ─────────────────────────────────────────${X}`);
-  console.log(`${C}  SmartPOS API Server${X} ${D}— shutting down${X}`);
-  console.log(`${D}  ─────────────────────────────────────────${X}`);
+function banner(lines) {
+  const width = Math.max(...lines.map((l) => stripAnsi(l).length)) + 4;
+  const top = `╭${'─'.repeat(width)}╮`;
+  const bottom = `╰${'─'.repeat(width)}╯`;
+  const body = lines
+    .map((l) => `│  ${l}${' '.repeat(width - stripAnsi(l).length - 2)}│`)
+    .join('\n');
+  return `\n${top}\n${body}\n${bottom}\n`;
 }
 
-function buildApp() {
+async function bootstrap() {
+  process.stdout.write(
+    banner([
+      `${C.bold}${C.cyan}SmartPOS API${C.reset}`,
+      `${C.dim}version:${C.reset} ${pkg.version}`,
+      `${C.dim}env:${C.reset}     ${env.nodeEnv}`,
+      `${C.dim}port:${C.reset}    ${env.port}`,
+    ])
+  );
+
+  try {
+    await connectDB();
+  } catch (e) {
+    logger.error({ err: e.message }, 'boot failed: mongodb');
+    process.exit(1);
+  }
+
+  try {
+    const redis = await connectRedis();
+    if (!redis) logger.warn('boot: redis disabled');
+  } catch (e) {
+    logger.warn({ err: e.message }, 'boot: redis failed — continuing');
+  }
+
   const app = express();
 
-  app.use(helmetMiddleware);
-  app.use(corsMiddleware);
-  app.use(globalLimiter);
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true }));
+  app.set('trust proxy', 1);
+
+  app.use(requestId);
   app.use(requestLogger);
-  app.use(maintenance);
+  app.use(helmetMw);
+  app.use(corsMw);
 
-  app.get('/', (req, res) => {
+  app.use('/api/public/webhooks', express.raw({ type: '*/*' }));
+
+  app.use(bodyParser);
+  app.use(sanitize);
+  app.use(rateLimitMw);
+
+  app.get('/', (_req, res) => {
     res.json({
-      success: true,
-      message: 'SmartPOS API',
-      data: {
-        name: 'SmartPOS',
-        company: 'HDM',
-        version: '1.0.0',
-        env: env.NODE_ENV
-      }
+      ok: true,
+      service: 'smartpos-api',
+      version: pkg.version,
+      message: 'SmartPOS API — running',
     });
   });
 
-  app.get('/api', (req, res) => {
+  app.get('/health', (_req, res) => {
+    const dbUp = mongoose.connection.readyState === 1;
+    const redisClient = getRedis();
+    const redisUp = redisClient ? redisClient.status === 'ready' : false;
+
     res.json({
-      success: true,
-      message: 'SmartPOS API v1',
-      data: {
-        version: 'v1',
-        baseUrl: '/api/v1'
-      }
+      ok: true,
+      status: dbUp ? 'healthy' : 'degraded',
+      version: pkg.version,
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      dependencies: {
+        mongodb: dbUp ? 'up' : 'down',
+        redis: redisUp ? 'up' : env.redis.enabled ? 'down' : 'disabled',
+      },
     });
   });
 
-  app.get('/health', (req, res) => {
-    res.json({
-      success: true,
-      message: 'OK',
-      data: {
-        status: 'healthy',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString()
-      }
-    });
-  });
-
-  app.use('/api/v1', routes);
+  app.use('/api', routes);
 
   app.use(notFound);
   app.use(errorHandler);
 
-  return app;
-}
+  const server = app.listen(env.port, () => {
+    const url = `http://localhost:${env.port}`;
+    logger.info(
+      `\n${C.green}${C.bold}✔ Ready${C.reset}\n` +
+        `   ${C.dim}version:${C.reset}  ${pkg.version}\n` +
+        `   ${C.dim}local:${C.reset}    ${C.cyan}${url}${C.reset}\n` +
+        `   ${C.dim}health:${C.reset}   ${C.cyan}${url}/health${C.reset}\n` +
+        `   ${C.dim}api:${C.reset}      ${C.cyan}${url}/api${C.reset}\n` +
+        `   ${C.dim}public:${C.reset}   ${C.cyan}${url}/api/public${C.reset}\n` +
+        `   ${C.dim}admin:${C.reset}    ${C.cyan}${url}/api/admin${C.reset}\n` +
+        `   ${C.dim}client:${C.reset}   ${C.cyan}${url}/api/client${C.reset}\n`
+    );
+  });
 
-async function start() {
-  try {
-    printBanner();
-
-    await connectDB();
-    console.log(`${G}  ✓${X} MongoDB connected`);
-
-    await connectRedis();
-    if (env.REDIS_ENABLED) {
-      console.log(`${G}  ✓${X} Redis connected`);
-    } else {
-      console.log(`${D}  ○ Redis disabled${X}`);
+  if (!env.disableSchedulers) {
+    try {
+      startSchedulers();
+    } catch (e) {
+      logger.error({ err: e.message }, 'schedulers failed to start');
     }
-
-    startSchedulers();
-    console.log(`${G}  ✓${X} Schedulers started`);
-
-    const app = buildApp();
-
-    server = app.listen(env.PORT, () => {
-      console.log(`${G}  ✓${X} Server listening on ${C}http://localhost:${env.PORT}${X}`);
-      console.log('');
-    });
-
-    registerShutdownHandlers();
-  } catch (err) {
-    console.log(`${R}  ✗ Failed to start server${X}`);
-    logger.error({ err }, 'Failed to start server');
-    process.exit(1);
   }
-}
-
-function registerShutdownHandlers() {
-  let shuttingDown = false;
 
   const shutdown = async (signal) => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-
-    printShutdown();
-    console.log(`${Y}  →${X} Received ${signal}`);
-
-    try {
-      stopSchedulers();
-      console.log(`${G}  ✓${X} Schedulers stopped`);
-
-      if (server) {
-        await new Promise((resolve) => server.close(resolve));
-        console.log(`${G}  ✓${X} HTTP server closed`);
+    logger.warn(`shutdown: ${signal}`);
+    server.close(async () => {
+      try {
+        await disconnectRedis();
+        await disconnectDB();
+        logger.info('shutdown complete');
+        process.exit(0);
+      } catch (e) {
+        logger.error({ err: e.message }, 'shutdown error');
+        process.exit(1);
       }
-
-      await disconnectRedis();
-      if (env.REDIS_ENABLED) {
-        console.log(`${G}  ✓${X} Redis disconnected`);
-      }
-
-      await disconnectDB();
-      console.log(`${G}  ✓${X} MongoDB disconnected`);
-
-      console.log(`${G}  ✓${X} Shutdown complete`);
-      console.log('');
-      process.exit(0);
-    } catch (err) {
-      console.log(`${R}  ✗ Error during shutdown${X}`);
-      logger.error({ err }, 'Error during shutdown');
-      process.exit(1);
-    }
+    });
+    setTimeout(() => process.exit(1), 10000).unref();
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 
   process.on('unhandledRejection', (reason) => {
-    logger.error({ reason }, 'Unhandled rejection');
+    logger.error({ reason: String(reason) }, 'unhandledRejection');
   });
 
   process.on('uncaughtException', (err) => {
-    logger.error({ err }, 'Uncaught exception');
+    logger.error({ err: err.message, stack: err.stack }, 'uncaughtException');
     process.exit(1);
   });
 }
 
-start();
+bootstrap();

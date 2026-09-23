@@ -1,81 +1,94 @@
-const cloudinary = require('../config/cloudinary');
-const logger = require('../utils/logger');
+const { cloudinary } = require('../config/cloudinary');
+const { env } = require('../config/env');
+const { ApiError } = require('../utils/apiError');
+const { logger } = require('../utils/logger');
 
-async function upload(buffer, folder, options = {}) {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: 'auto', ...options },
-      (err, result) => {
-        if (err) {
-          logger.error({ err, folder }, 'Cloudinary upload failed');
-          return reject(err);
-        }
-        resolve({
-          url: result.secure_url,
-          publicId: result.public_id,
-          width: result.width,
-          height: result.height,
-          format: result.format,
-          bytes: result.bytes
-        });
-      }
-    );
-    stream.end(buffer);
-  });
-}
-
-async function uploadRaw(buffer, folder, publicId) {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        public_id: publicId,
-        resource_type: 'raw',
-        format: 'json'
-      },
-      (err, result) => {
-        if (err) {
-          logger.error({ err, folder }, 'Cloudinary raw upload failed');
-          return reject(err);
-        }
-        resolve({
-          url: result.secure_url,
-          publicId: result.public_id,
-          bytes: result.bytes
-        });
-      }
-    );
-    stream.end(buffer);
-  });
-}
-
-async function destroy(publicId, resourceType = 'image') {
-  try {
-    const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
-    return result;
-  } catch (err) {
-    logger.error({ err, publicId }, 'Cloudinary destroy failed');
-    throw err;
+function assertEnabled() {
+  if (!env.cloudinary.enabled) {
+    throw ApiError.internal('STORAGE_DISABLED', 'Cloudinary not configured');
   }
 }
 
-async function uploadLogo(buffer, clientId) {
-  return upload(buffer, `smartpos/clients/${clientId}/logo`, { public_id: 'logo' });
+function buildFolder(tenantId, kind) {
+  return `smartpos/${tenantId}/${kind}`;
 }
 
-async function uploadProductImage(buffer, clientId, productId) {
-  return upload(buffer, `smartpos/clients/${clientId}/products/${productId}`);
+function uploadBuffer(buffer, { folder, publicId, resourceType = 'image', format } = {}) {
+  assertEnabled();
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      folder,
+      public_id: publicId,
+      resource_type: resourceType,
+      overwrite: false,
+    };
+    if (format) options.format = format;
+
+    const stream = cloudinary.uploader.upload_stream(options, (err, result) => {
+      if (err) {
+        logger.error({ err: err.message }, 'cloudinary upload failed');
+        return reject(ApiError.badRequest('UPLOAD_FAILED', 'Upload failed'));
+      }
+      resolve({
+        url: result.secure_url,
+        publicId: result.public_id,
+        bytes: result.bytes,
+        format: result.format,
+        resourceType: result.resource_type,
+      });
+    });
+
+    stream.end(buffer);
+  });
 }
 
-async function uploadAvatar(buffer, userId) {
-  return upload(buffer, `smartpos/avatars/${userId}`, { public_id: 'avatar' });
+async function uploadFromUrl(url, { folder, publicId, resourceType = 'image' } = {}) {
+  assertEnabled();
+  try {
+    const result = await cloudinary.uploader.upload(url, {
+      folder,
+      public_id: publicId,
+      resource_type: resourceType,
+      overwrite: false,
+    });
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      bytes: result.bytes,
+      format: result.format,
+      resourceType: result.resource_type,
+    };
+  } catch (err) {
+    logger.error({ err: err.message }, 'cloudinary url upload failed');
+    throw ApiError.badRequest('UPLOAD_FAILED', 'Upload failed');
+  }
+}
+
+async function deleteAsset(publicId, resourceType = 'image') {
+  if (!publicId || !env.cloudinary.enabled) return { deleted: false };
+  try {
+    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    return { deleted: true };
+  } catch (err) {
+    logger.error({ err: err.message, publicId }, 'cloudinary delete failed');
+    return { deleted: false };
+  }
+}
+
+function signedUrl(publicId, options = {}) {
+  if (!publicId || !env.cloudinary.enabled) return null;
+  return cloudinary.url(publicId, {
+    secure: true,
+    sign_url: true,
+    ...options,
+  });
 }
 
 module.exports = {
-  upload,
-  uploadRaw,
-  destroy,
-  uploadLogo,
-  uploadProductImage,
-  uploadAvatar
+  buildFolder,
+  uploadBuffer,
+  uploadFromUrl,
+  deleteAsset,
+  signedUrl,
 };

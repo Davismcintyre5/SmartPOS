@@ -1,16 +1,38 @@
 const mongoose = require('mongoose');
-const { PAYMENT_METHODS } = require('../../utils/constants');
 
-const paymentMethodSchema = new mongoose.Schema({
-  _id: { type: String, enum: PAYMENT_METHODS },
-  name: { type: String, required: true },
-  provider: { type: String, required: true },
-  type: { type: String, enum: ['automatic', 'manual'], required: true },
-  enabled: { type: Boolean, default: false },
-  status: { type: String, enum: ['connected', 'not_configured', 'error'], default: 'not_configured' },
-  supportedCurrencies: { type: [String], default: [] },
-  config: { type: mongoose.Schema.Types.Mixed, default: {} },
-  position: { type: Number, default: 0 }
-}, { timestamps: true, _id: false });
+const CODES = [
+  'stripe',
+  'mpesa_stk',
+  'cash',
+  'mpesa_send',
+  'mpesa_till',
+  'mpesa_paybill',
+  'bank',
+];
 
-module.exports = mongoose.model('PaymentMethod', paymentMethodSchema);
+const MODES = ['auto', 'manual'];
+
+const schema = new mongoose.Schema(
+  {
+    code: { type: String, enum: CODES, required: true, unique: true },
+    label: { type: String, required: true },
+    mode: { type: String, enum: MODES, required: true },
+    enabled: { type: Boolean, default: false },
+    requiresApproval: { type: Boolean, default: false },
+    config: { type: Object, default: {} },
+    order: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
+
+schema.index({ enabled: 1, order: 1 });
+
+schema.set('toJSON', {
+  virtuals: true,
+  transform: (_doc, ret) => {
+    delete ret.__v;
+    return ret;
+  },
+});
+
+module.exports = mongoose.model('PaymentMethod', schema);

@@ -1,103 +1,75 @@
+const { asyncHandler } = require('../../utils/asyncHandler');
+const { ok } = require('../../utils/apiResponse');
+const { assertObjectId } = require('../../utils/validateObjectId');
+const { tenantFilter } = require('../../utils/tenantScope');
+const { ApiError } = require('../../utils/apiError');
 const Sale = require('../../models/client/Sale');
-const Client = require('../../models/admin/Client');
-const Settings = require('../../models/client/Settings');
+const Tenant = require('../../models/admin/Tenant');
 const emailService = require('../../services/emailService');
-const smsService = require('../../services/smsService');
-const { success } = require('../../utils/response');
-const { formatMoney } = require('../../utils/money');
-const asyncHandler = require('../../utils/asyncHandler');
-const ApiError = require('../../utils/ApiError');
+const cloudinaryService = require('../../services/cloudinaryService');
 
-const getReceipt = asyncHandler(async (req, res) => {
-  const sale = await Sale.findOne({ _id: req.params.saleId, tenantId: req.tenant._id }).lean();
-  if (!sale) throw ApiError.notFound('Sale not found');
+const get = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.saleId, 'saleId');
 
-  const client = await Client.findById(req.tenant._id).lean();
-  const settings = await Settings.findOne({ tenantId: req.tenant._id }).lean();
+  const [sale, tenant] = await Promise.all([
+    Sale.findOne(tenantFilter(req, { _id: req.params.saleId })).lean(),
+    Tenant.findById(req.tenantId).lean(),
+  ]);
 
-  const receipt = {
-    saleId: sale._id,
-    storeName: client.name,
-    logoUrl: client.logoUrl,
-    currency: sale.currency,
-    items: sale.items.map((i) => ({
-      ...i,
-      priceFormatted: formatMoney(i.priceCents, sale.currency),
-      totalFormatted: formatMoney(i.totalCents, sale.currency)
-    })),
-    subtotal: formatMoney(sale.subtotalCents, sale.currency),
-    tax: formatMoney(sale.taxCents, sale.currency),
-    discount: formatMoney(sale.discountCents, sale.currency),
-    total: formatMoney(sale.totalCents, sale.currency),
-    paymentMethod: sale.paymentMethod,
-    createdAt: sale.createdAt,
-    header: settings?.receiptHeader || '',
-    footer: settings?.receiptFooter || ''
-  };
+  if (!sale) throw ApiError.notFound('SALE_NOT_FOUND', 'Sale not found');
 
-  return success(res, receipt, 'Receipt');
+  return ok(res, {
+    business: {
+      name: tenant?.name,
+      logoUrl: tenant?.settings?.logoUrl || null,
+      address: tenant?.settings?.address || null,
+      phone: tenant?.settings?.phone || null,
+    },
+    sale,
+    footer: tenant?.settings?.receiptFooter || 'Thank you for your business.',
+  });
 });
 
-const emailReceipt = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-  if (!email) throw ApiError.badRequest('email required');
+const pdf = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.saleId, 'saleId');
 
-  const sale = await Sale.findOne({ _id: req.params.saleId, tenantId: req.tenant._id }).lean();
-  if (!sale) throw ApiError.notFound('Sale not found');
+  const sale = await Sale.findOne(tenantFilter(req, { _id: req.params.saleId })).lean();
+  if (!sale) throw ApiError.notFound('SALE_NOT_FOUND', 'Sale not found');
 
-  await emailService.send({
-    to: email,
-    template: 'receipt',
-    data: {
-      storeName: req.tenant.name,
-      saleId: sale._id,
-      total: formatMoney(sale.totalCents, sale.currency),
-      reference: sale._id.slice(0, 8)
-    }
-  }).catch(() => {});
-
-  return success(res, null, 'Receipt emailed');
-});
-
-const smsReceipt = asyncHandler(async (req, res) => {
-  const { phone } = req.body;
-  if (!phone) throw ApiError.badRequest('phone required');
-
-  const sale = await Sale.findOne({ _id: req.params.saleId, tenantId: req.tenant._id }).lean();
-  if (!sale) throw ApiError.notFound('Sale not found');
-
-  await smsService.send({
-    to: phone,
-    template: 'receipt',
-    data: {
-      storeName: req.tenant.name,
-      saleId: sale._id,
-      total: formatMoney(sale.totalCents, sale.currency),
-      reference: sale._id.slice(0, 8)
-    }
-  }).catch(() => {});
-
-  return success(res, null, 'Receipt sent via SMS');
-});
-
-const printReceipt = asyncHandler(async (req, res) => {
-  const sale = await Sale.findOne({ _id: req.params.saleId, tenantId: req.tenant._id }).lean();
-  if (!sale) throw ApiError.notFound('Sale not found');
-
-  const lines = [];
-  lines.push(req.tenant.name);
-  lines.push(new Date(sale.createdAt).toLocaleString());
-  lines.push('------------------------------');
-
-  for (const item of sale.items) {
-    lines.push(`${item.qty} x ${item.productName}  ${formatMoney(item.totalCents, sale.currency)}`);
+  if (sale.receiptPublicId) {
+    const url = cloudinaryService.signedUrl(sale.receiptPublicId, { resource_type: 'raw' });
+    return ok(res, { url });
   }
 
-  lines.push('------------------------------');
-  lines.push(`Total: ${formatMoney(sale.totalCents, sale.currency)}`);
-  lines.push(`Payment: ${sale.paymentMethod}`);
-
-  return success(res, { lines: lines.join('\n') }, 'ESC/POS payload');
+  return ok(res, { url: null, message: 'PDF not generated yet' });
 });
 
-module.exports = { getReceipt, emailReceipt, smsReceipt, printReceipt };
+const email = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.saleId, 'saleId');
+
+  const { to } = req.body;
+  if (!to) throw ApiError.badRequest('EMAIL_REQUIRED', 'Recipient email required');
+
+  const [sale, tenant] = await Promise.all([
+    Sale.findOne(tenantFilter(req, { _id: req.params.saleId })).lean(),
+    Tenant.findById(req.tenantId).lean(),
+  ]);
+
+  if (!sale) throw ApiError.notFound('SALE_NOT_FOUND', 'Sale not found');
+
+  emailService
+    .sendInvoicePaidEmail(to, {
+      businessName: tenant?.name || 'SmartPOS',
+      customerName: req.body.customerName || 'Customer',
+      invoiceNumber: sale.saleNumber,
+      amount: sale.total,
+      currency: sale.currency,
+      paidAt: sale.createdAt?.toISOString(),
+      paymentMethod: sale.paymentMethod,
+    })
+    .catch(() => {});
+
+  return ok(res, { queued: true, to });
+});
+
+module.exports = { get, pdf, email };

@@ -1,182 +1,180 @@
+const { asyncHandler } = require('../../utils/asyncHandler');
+const { ok, created, paginated } = require('../../utils/apiResponse');
+const { parsePagination } = require('../../utils/pagination');
+const { assertObjectId } = require('../../utils/validateObjectId');
+const { tenantFilter } = require('../../utils/tenantScope');
+const { resolveDateRange } = require('../../utils/dateRange');
+const { ApiError } = require('../../utils/apiError');
 const Sale = require('../../models/client/Sale');
 const Product = require('../../models/client/Product');
-const StockMovement = require('../../models/client/StockMovement');
-const Settings = require('../../models/client/Settings');
-const { success, created, paginated } = require('../../utils/response');
-const { getPagination, buildPaginationMeta } = require('../../utils/pagination');
-const { applyTax } = require('../../utils/money');
-const { startOfDay, endOfDay, now } = require('../../utils/date');
-const asyncHandler = require('../../utils/asyncHandler');
-const ApiError = require('../../utils/ApiError');
-const crypto = require('crypto');
+const Customer = require('../../models/client/Customer');
+const InventoryMovement = require('../../models/client/InventoryMovement');
+const planService = require('../../services/planService');
 
-const list = asyncHandler(async (req, res) => {
-  const { page, limit, skip } = getPagination(req.query);
-  const { from, to, status } = req.query;
-
-  const query = { tenantId: req.tenant._id };
-  if (status) query.status = status;
-  if (from || to) {
-    query.createdAt = {};
-    if (from) query.createdAt.$gte = new Date(from);
-    if (to) query.createdAt.$lte = new Date(to);
-  }
-
-  const [items, total] = await Promise.all([
-    Sale.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    Sale.countDocuments(query)
-  ]);
-
-  return paginated(res, items, buildPaginationMeta(total, page, limit));
-});
-
-const getOne = asyncHandler(async (req, res) => {
-  const sale = await Sale.findOne({ _id: req.params.id, tenantId: req.tenant._id }).lean();
-  if (!sale) throw ApiError.notFound('Sale not found');
-  return success(res, sale, 'Sale');
-});
+function generateSaleNumber() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const rand = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `S-${stamp}-${rand}`;
+}
 
 const create = asyncHandler(async (req, res) => {
-  const { items, paymentMethod, discountCents = 0, currency } = req.body;
+  const { items, paymentMethod, customerId, discount = 0 } = req.body;
+  if (!Array.isArray(items) || !items.length) {
+    throw ApiError.badRequest('NO_ITEMS', 'Sale must have items');
+  }
 
-  if (!Array.isArray(items) || !items.length) throw ApiError.badRequest('items required');
+  await planService.checkTransactionLimit(req.tenantId, Sale);
 
-  const settings = await Settings.findOne({ tenantId: req.tenant._id }).lean();
-  const taxRate = settings?.taxRate ?? 0;
-  const taxInclusive = settings?.taxInclusive ?? false;
+  const productIds = items.map((i) => i.productId);
+  const products = await Product.find(
+    tenantFilter(req, { _id: { $in: productIds } })
+  ).lean();
+  const productsById = Object.fromEntries(products.map((p) => [p._id.toString(), p]));
 
-  const saleItems = [];
   let subtotal = 0;
-  let taxTotal = 0;
+  const saleItems = [];
 
   for (const item of items) {
-    const product = await Product.findOne({ _id: item.productId, tenantId: req.tenant._id });
-    if (!product) throw ApiError.badRequest(`Product not found: ${item.productId}`);
-
-    if (!settings?.allowNegativeStock && product.stock < item.qty) {
-      throw ApiError.badRequest(`Insufficient stock for ${product.name}`);
+    const product = productsById[String(item.productId)];
+    if (!product) {
+      throw ApiError.badRequest('PRODUCT_NOT_FOUND', `Product ${item.productId} not found`);
+    }
+    if (product.stock < item.qty) {
+      throw ApiError.badRequest('INSUFFICIENT_STOCK', `Not enough stock for ${product.name}`);
     }
 
-    const lineTotal = product.priceCents * item.qty;
-    const { tax } = applyTax(lineTotal, taxRate, taxInclusive);
+    const lineTotal = product.price * item.qty;
+    subtotal += lineTotal;
 
     saleItems.push({
       productId: product._id,
-      productName: product.name,
+      name: product.name,
+      sku: product.sku,
       qty: item.qty,
-      priceCents: product.priceCents,
-      discountCents: 0,
-      taxCents: tax,
-      totalCents: lineTotal
+      price: product.price,
+      subtotal: lineTotal,
     });
-
-    subtotal += lineTotal;
-    taxTotal += tax;
   }
 
-  const saleId = crypto.randomUUID();
-  const totalCents = subtotal + (taxInclusive ? 0 : taxTotal) - discountCents;
+  const tax = 0;
+  const total = subtotal - discount + tax;
 
   const sale = await Sale.create({
-    _id: saleId,
-    tenantId: req.tenant._id,
-    userId: req.user.userId,
+    tenantId: req.tenantId,
+    saleNumber: generateSaleNumber(),
     items: saleItems,
-    subtotalCents: subtotal,
-    taxCents: taxTotal,
-    discountCents,
-    totalCents,
-    currency: currency || settings?.currency || req.tenant.storeCurrency,
-    status: 'completed',
+    subtotal,
+    discount,
+    tax,
+    total,
+    currency: 'KES',
     paymentMethod,
-    syncedAt: now()
+    paymentStatus: 'paid',
+    cashierId: req.user.id,
+    customerId: customerId || null,
   });
 
   for (const item of saleItems) {
-    await Product.updateOne(
-      { _id: item.productId, tenantId: req.tenant._id },
-      { $inc: { stock: -item.qty } }
-    );
+    const product = productsById[String(item.productId)];
+    const newStock = product.stock - item.qty;
 
-    await StockMovement.create({
-      _id: crypto.randomUUID(),
-      tenantId: req.tenant._id,
-      productId: item.productId,
-      delta: -item.qty,
-      reason: 'sale',
-      refId: saleId,
-      userId: req.user.userId
+    await Product.updateOne({ _id: product._id }, { $set: { stock: newStock } });
+
+    await InventoryMovement.create({
+      tenantId: req.tenantId,
+      productId: product._id,
+      type: 'sale',
+      qty: -item.qty,
+      refType: 'sale',
+      refId: sale._id,
+      userId: req.user.id,
+      balanceAfter: newStock,
     });
   }
 
-  return created(res, sale, 'Sale completed');
+  if (customerId) {
+    await Customer.updateOne(
+      tenantFilter(req, { _id: customerId }),
+      { $inc: { totalSpent: total }, $set: { lastPurchaseAt: new Date() } }
+    );
+  }
+
+  return created(res, sale.toObject());
 });
 
-const refund = asyncHandler(async (req, res) => {
-  const sale = await Sale.findOne({ _id: req.params.id, tenantId: req.tenant._id });
-  if (!sale) throw ApiError.notFound('Sale not found');
-  if (sale.status === 'refunded') throw ApiError.badRequest('Sale already refunded');
+const list = asyncHandler(async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query);
+  const filter = tenantFilter(req);
 
-  for (const item of sale.items) {
-    await Product.updateOne(
-      { _id: item.productId, tenantId: req.tenant._id },
-      { $inc: { stock: item.qty } }
-    );
+  const { start, end } = resolveDateRange(req.query);
+  filter.createdAt = { $gte: start, $lte: end };
 
-    await StockMovement.create({
-      _id: crypto.randomUUID(),
-      tenantId: req.tenant._id,
-      productId: item.productId,
-      delta: item.qty,
-      reason: 'refund',
-      refId: sale._id,
-      userId: req.user.userId
-    });
-  }
+  if (req.user.role === 'cashier') filter.cashierId = req.user.id;
+  if (req.query.cashierId && req.user.role !== 'cashier') filter.cashierId = req.query.cashierId;
+  if (req.query.paymentMethod) filter.paymentMethod = req.query.paymentMethod;
 
-  sale.status = 'refunded';
-  await sale.save();
+  const [items, total] = await Promise.all([
+    Sale.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Sale.countDocuments(filter),
+  ]);
 
-  return success(res, sale, 'Sale refunded');
+  return paginated(res, items, page, limit, total);
+});
+
+const get = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, 'saleId');
+
+  const filter = tenantFilter(req, { _id: req.params.id });
+  if (req.user.role === 'cashier') filter.cashierId = req.user.id;
+
+  const sale = await Sale.findOne(filter).lean();
+  if (!sale) throw ApiError.notFound('SALE_NOT_FOUND', 'Sale not found');
+  return ok(res, sale);
 });
 
 const voidSale = asyncHandler(async (req, res) => {
-  const sale = await Sale.findOne({ _id: req.params.id, tenantId: req.tenant._id });
-  if (!sale) throw ApiError.notFound('Sale not found');
-  if (sale.status !== 'completed') throw ApiError.badRequest('Only completed sales can be voided');
+  assertObjectId(req.params.id, 'saleId');
 
-  for (const item of sale.items) {
-    await Product.updateOne(
-      { _id: item.productId, tenantId: req.tenant._id },
-      { $inc: { stock: item.qty } }
-    );
-  }
+  const sale = await Sale.findOne(tenantFilter(req, { _id: req.params.id }));
+  if (!sale) throw ApiError.notFound('SALE_NOT_FOUND', 'Sale not found');
+  if (sale.voided) throw ApiError.badRequest('ALREADY_VOIDED', 'Sale already voided');
 
-  sale.status = 'voided';
+  sale.voided = true;
+  sale.voidReason = req.body.reason || 'No reason provided';
+  sale.voidedBy = req.user.id;
+  sale.voidedAt = new Date();
   await sale.save();
 
-  return success(res, sale, 'Sale voided');
+  for (const item of sale.items) {
+    const product = await Product.findById(item.productId);
+    if (!product) continue;
+
+    const newStock = product.stock + item.qty;
+    await Product.updateOne({ _id: product._id }, { $set: { stock: newStock } });
+
+    await InventoryMovement.create({
+      tenantId: req.tenantId,
+      productId: product._id,
+      type: 'sale_return',
+      qty: item.qty,
+      reason: 'Sale voided',
+      refType: 'sale',
+      refId: sale._id,
+      userId: req.user.id,
+      balanceAfter: newStock,
+    });
+  }
+
+  return ok(res, sale.toObject());
 });
 
-const todaySummary = asyncHandler(async (req, res) => {
-  const start = startOfDay(now());
-  const end = endOfDay(now());
-
-  const sales = await Sale.find({
-    tenantId: req.tenant._id,
-    status: 'completed',
-    createdAt: { $gte: start, $lte: end }
-  }).lean();
-
-  const summary = sales.reduce((acc, s) => {
-    acc.count += 1;
-    acc.totalCents += s.totalCents;
-    acc.taxCents += s.taxCents;
-    acc.discountCents += s.discountCents;
-    return acc;
-  }, { count: 0, totalCents: 0, taxCents: 0, discountCents: 0 });
-
-  return success(res, summary, 'Today summary');
+const reprint = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, 'saleId');
+  const sale = await Sale.findOne(tenantFilter(req, { _id: req.params.id })).lean();
+  if (!sale) throw ApiError.notFound('SALE_NOT_FOUND', 'Sale not found');
+  return ok(res, sale);
 });
 
-module.exports = { list, getOne, create, refund, voidSale, todaySummary };
+module.exports = { create, list, get, voidSale, reprint };

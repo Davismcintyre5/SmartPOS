@@ -1,8 +1,8 @@
 const helmet = require('helmet');
 
-const helmetMiddleware = helmet({
+const helmetMw = helmet({
   contentSecurityPolicy: false,
-  crossOriginResourcePolicy: { policy: 'cross-origin' }
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 });
 
-module.exports = helmetMiddleware;
+module.exports = { helmetMw };

@@ -1,90 +1,82 @@
+const { asyncHandler } = require('../../utils/asyncHandler');
+const { ok, created, paginated, noContent } = require('../../utils/apiResponse');
+const { parsePagination } = require('../../utils/pagination');
+const { assertObjectId } = require('../../utils/validateObjectId');
+const { tenantFilter } = require('../../utils/tenantScope');
+const { ApiError } = require('../../utils/apiError');
 const Customer = require('../../models/client/Customer');
-const { success, created, paginated } = require('../../utils/response');
-const { getPagination, buildPaginationMeta } = require('../../utils/pagination');
-const asyncHandler = require('../../utils/asyncHandler');
-const ApiError = require('../../utils/ApiError');
 
 const list = asyncHandler(async (req, res) => {
-  const { page, limit, skip } = getPagination(req.query);
-  const { search } = req.query;
+  const { page, limit, skip } = parsePagination(req.query);
+  const filter = tenantFilter(req);
 
-  const query = { tenantId: req.tenant._id };
-  if (search) {
-    query.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } },
-      { phone: { $regex: search, $options: 'i' } }
+  if (req.query.search) {
+    filter.$or = [
+      { name: { $regex: req.query.search, $options: 'i' } },
+      { phone: { $regex: req.query.search, $options: 'i' } },
+      { email: { $regex: req.query.search, $options: 'i' } },
     ];
   }
 
   const [items, total] = await Promise.all([
-    Customer.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    Customer.countDocuments(query)
+    Customer.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Customer.countDocuments(filter),
   ]);
 
-  return paginated(res, items, buildPaginationMeta(total, page, limit));
+  return paginated(res, items, page, limit, total);
 });
 
-const getOne = asyncHandler(async (req, res) => {
-  const customer = await Customer.findOne({ _id: req.params.id, tenantId: req.tenant._id }).lean();
-  if (!customer) throw ApiError.notFound('Customer not found');
-  return success(res, customer, 'Customer');
+const get = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, 'customerId');
+  const customer = await Customer.findOne(tenantFilter(req, { _id: req.params.id })).lean();
+  if (!customer) throw ApiError.notFound('CUSTOMER_NOT_FOUND', 'Customer not found');
+  return ok(res, customer);
 });
 
 const create = asyncHandler(async (req, res) => {
-  const { name, email, phone } = req.body;
-  if (!name) throw ApiError.badRequest('name required');
+  const { name } = req.body;
+  if (!name) throw ApiError.badRequest('NAME_REQUIRED', 'Name required');
 
   const customer = await Customer.create({
-    tenantId: req.tenant._id,
+    tenantId: req.tenantId,
     name,
-    email: email || null,
-    phone: phone || null
+    phone: req.body.phone,
+    email: req.body.email,
+    address: req.body.address,
+    notes: req.body.notes,
   });
 
-  return created(res, customer, 'Customer created');
+  return created(res, customer.toObject());
 });
 
 const update = asyncHandler(async (req, res) => {
-  const customer = await Customer.findOne({ _id: req.params.id, tenantId: req.tenant._id });
-  if (!customer) throw ApiError.notFound('Customer not found');
+  assertObjectId(req.params.id, 'customerId');
 
-  const { name, email, phone } = req.body;
-  if (name) customer.name = name;
-  if (email !== undefined) customer.email = email;
-  if (phone !== undefined) customer.phone = phone;
-  await customer.save();
+  const allowed = ['name', 'phone', 'email', 'address', 'notes', 'active'];
+  const patch = {};
+  for (const k of allowed) if (req.body[k] !== undefined) patch[k] = req.body[k];
 
-  return success(res, customer, 'Customer updated');
+  const customer = await Customer.findOneAndUpdate(
+    tenantFilter(req, { _id: req.params.id }),
+    patch,
+    { new: true }
+  ).lean();
+
+  if (!customer) throw ApiError.notFound('CUSTOMER_NOT_FOUND', 'Customer not found');
+  return ok(res, customer);
 });
 
-const adjustLoyalty = asyncHandler(async (req, res) => {
-  const { delta } = req.body;
-  if (typeof delta !== 'number' || delta === 0) throw ApiError.badRequest('delta required');
+const remove = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, 'customerId');
 
-  const customer = await Customer.findOne({ _id: req.params.id, tenantId: req.tenant._id });
-  if (!customer) throw ApiError.notFound('Customer not found');
+  const customer = await Customer.findOneAndUpdate(
+    tenantFilter(req, { _id: req.params.id }),
+    { $set: { active: false } },
+    { new: true }
+  ).lean();
 
-  customer.loyaltyPoints = Math.max(0, customer.loyaltyPoints + delta);
-  await customer.save();
-
-  return success(res, customer, 'Loyalty adjusted');
+  if (!customer) throw ApiError.notFound('CUSTOMER_NOT_FOUND', 'Customer not found');
+  return noContent(res);
 });
 
-const search = asyncHandler(async (req, res) => {
-  const { q } = req.query;
-  if (!q) return success(res, [], 'No query');
-
-  const items = await Customer.find({
-    tenantId: req.tenant._id,
-    $or: [
-      { name: { $regex: q, $options: 'i' } },
-      { email: { $regex: q, $options: 'i' } },
-      { phone: { $regex: q, $options: 'i' } }
-    ]
-  }).limit(20).lean();
-
-  return success(res, items, 'Search results');
-});
-
-module.exports = { list, getOne, create, update, adjustLoyalty, search };
+module.exports = { list, get, create, update, remove };

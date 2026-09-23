@@ -1,33 +1,16 @@
-const express = require('express');
-const multer = require('multer');
-const router = express.Router();
+const { Router } = require('express');
+const c = require('../../controllers/client/settingsController');
+const { roles } = require('../../middleware/client/roles');
+const { requireActive } = require('../../middleware/client/statusGuard');
 
-const settingsController = require('../../controllers/client/settingsController');
-const externalKeyController = require('../../controllers/client/externalKeyController');
-const auth = require('../../middleware/client/auth');
-const period = require('../../middleware/client/period');
-const requireRole = require('../../middleware/client/role');
+const router = Router();
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
+router.use(requireActive);
+router.use(roles('owner'));
 
-router.use(auth, period);
-
-// ── General settings ────────────────────────────────────
-router.get('/', settingsController.get);
-router.put('/', requireRole(['owner', 'manager']), settingsController.update);
-router.put('/receipt', requireRole(['owner', 'manager']), settingsController.updateReceipt);
-router.put('/tax', requireRole(['owner', 'manager']), settingsController.updateTax);
-router.put('/currency', requireRole(['owner']), settingsController.updateCurrency);
-router.put('/loyalty', requireRole(['owner', 'manager']), settingsController.updateLoyalty);
-router.put('/sync', requireRole(['owner', 'manager']), settingsController.updateSync);
-router.post('/logo', requireRole(['owner']), upload.single('file'), settingsController.uploadLogo);
-
-// ── AI settings ─────────────────────────────────────────
-router.put('/ai', requireRole(['owner', 'manager']), settingsController.updateAi);
-
-// ── External API key (under AI) ─────────────────────────
-router.get('/ai/key', requireRole(['owner']), externalKeyController.getKey);
-router.post('/ai/key', requireRole(['owner']), externalKeyController.createKey);
-router.delete('/ai/key', requireRole(['owner']), externalKeyController.revokeKey);
+router.get('/', c.get);
+router.patch('/', c.update);
+router.post('/payments/:code/enable', c.enablePayment);
+router.delete('/payments/:code', c.disablePayment);
 
 module.exports = router;

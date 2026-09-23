@@ -1,279 +1,427 @@
 require('./dnsSet');
-
+require('dotenv/config');
 const readline = require('readline');
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 
-const { connectDB } = require('../config/db');
-const { hashPassword } = require('../utils/password');
-const AdminUser = require('../models/admin/AdminUser');
+const { connectDB, disconnectDB } = require('../config/db');
+const SuperAdmin = require('../models/admin/SuperAdmin');
+const { hashPassword } = require('../utils/jwt');
+const emailService = require('../services/emailService');
+const { env } = require('../config/env');
+
+const C = {
+  reset: '\x1b[0m',
+  dim: '\x1b[2m',
+  bold: '\x1b[1m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  magenta: '\x1b[35m',
+};
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
-const question = (query) => new Promise((resolve) => rl.question(query, resolve));
+function ask(question) {
+  return new Promise((resolve) => rl.question(question, (a) => resolve(a.trim())));
+}
 
-const listAdmins = async () => {
-  console.log('\n=== LIST ADMINS ===\n');
+function askHidden(question) {
+  return new Promise((resolve) => {
+    const stdin = process.stdin;
+    const stdout = process.stdout;
+    stdout.write(question);
 
-  const admins = await AdminUser.find({}).select('name email role active lastLoginAt createdAt').lean();
+    const wasRaw = stdin.isRaw;
+    if (stdin.isTTY) stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding('utf8');
+
+    let input = '';
+    const onData = (char) => {
+      char = char.toString();
+      if (char === '\n' || char === '\r' || char === '\u0004') {
+        if (stdin.isTTY) stdin.setRawMode(wasRaw);
+        stdin.removeListener('data', onData);
+        stdin.pause();
+        stdout.write('\n');
+        resolve(input.trim());
+      } else if (char === '\u0003') {
+        stdout.write('\n');
+        process.exit(0);
+      } else if (char === '\u007F' || char === '\b') {
+        input = input.slice(0, -1);
+      } else {
+        input += char;
+      }
+    };
+    stdin.on('data', onData);
+  });
+}
+
+function clear() {
+  process.stdout.write('\x1b[2J\x1b[0f');
+}
+
+function line(str = '') {
+  console.log(str);
+}
+
+function heading(title) {
+  line();
+  line(`${C.bold}${C.cyan}${title}${C.reset}`);
+  line(`${C.dim}${'─'.repeat(title.length)}${C.reset}`);
+  line();
+}
+
+function ok(msg) {
+  line(`${C.green}✔${C.reset} ${msg}`);
+}
+
+function warn(msg) {
+  line(`${C.yellow}⚠${C.reset} ${msg}`);
+}
+
+function err(msg) {
+  line(`${C.red}✖${C.reset} ${msg}`);
+}
+
+function info(msg) {
+  line(`${C.dim}·${C.reset} ${msg}`);
+}
+
+function randomPassword(len = 14) {
+  return crypto.randomBytes(len).toString('base64url').slice(0, len);
+}
+
+function maskEmail(email) {
+  const [user, domain] = String(email).split('@');
+  if (!domain) return '[redacted]';
+  return `${user.slice(0, 1)}***@${domain}`;
+}
+
+async function menu() {
+  clear();
+  line();
+  line(`${C.bold}${C.cyan}╭─────────────────────────────────────╮${C.reset}`);
+  line(`${C.bold}${C.cyan}│   SmartPOS — Admin CLI                 │${C.reset}`);
+  line(`${C.bold}${C.cyan}╰─────────────────────────────────────╯${C.reset}`);
+  line();
+  line(`  ${C.bold}1${C.reset}.  List super admins`);
+  line(`  ${C.bold}2${C.reset}.  Create super admin`);
+  line(`  ${C.bold}3${C.reset}.  Manage super admin`);
+  line(`  ${C.bold}4${C.reset}.  List database collections`);
+  line(`  ${C.bold}5${C.reset}.  Drop a collection`);
+  line(`  ${C.bold}6${C.reset}.  Drop entire database`);
+  line();
+  line(`  ${C.dim}0.  Exit${C.reset}`);
+  line();
+
+  const choice = await ask(`${C.cyan}›${C.reset} Select option: `);
+  return choice;
+}
+
+async function listSuperAdmins() {
+  heading('Super admins');
+  const admins = await SuperAdmin.find().sort({ createdAt: 1 }).lean();
 
   if (!admins.length) {
-    console.log('No admins found.');
+    warn('No super admins found');
+  } else {
+    admins.forEach((a, i) => {
+      line(`  ${C.bold}${i + 1}.${C.reset} ${a.fullName} ${C.dim}<${maskEmail(a.email)}>${C.reset}`);
+      line(`     ${C.dim}id:${C.reset}     ${a._id}`);
+      line(`     ${C.dim}status:${C.reset} ${a.status}`);
+      line(`     ${C.dim}role:${C.reset}   ${a.role}`);
+      line(`     ${C.dim}last:${C.reset}   ${a.lastLoginAt ? a.lastLoginAt.toISOString() : 'never'}`);
+      line();
+    });
+  }
+  await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+}
+
+async function createSuperAdmin() {
+  heading('Create super admin');
+
+  const fullName = await ask('Full name: ');
+  const email = (await ask('Email: ')).toLowerCase();
+  const passwordInput = await askHidden('Password (leave blank to generate): ');
+
+  if (!fullName || !email) {
+    err('Name and email are required');
+    await ask(`${C.dim}Press Enter to continue...${C.reset}`);
     return;
   }
 
-  admins.forEach((admin, index) => {
-    console.log(`[${index + 1}]`);
-    console.log(`  ID: ${admin._id}`);
-    console.log(`  Name: ${admin.name}`);
-    console.log(`  Email: ${admin.email}`);
-    console.log(`  Role: ${admin.role}`);
-    console.log(`  Active: ${admin.active}`);
-    console.log(`  Last login: ${admin.lastLoginAt ? admin.lastLoginAt.toISOString() : 'never'}`);
-    console.log(`  Created: ${admin.createdAt.toISOString()}`);
-    console.log('');
-  });
-};
-
-const createAdmin = async () => {
-  console.log('\n=== CREATE ADMIN ===\n');
-
-  const name = await question('Full Name: ');
-  const email = await question('Email: ');
-  const password = await question('Password: ');
-  const roleInput = await question('Role (super_admin/admin/support/read_only) [admin]: ');
-
-  if (!name || !email || !password) {
-    console.log('Name, email and password are required.');
-    return;
-  }
-
-  const allowedRoles = ['super_admin', 'admin', 'support', 'read_only'];
-  const role = allowedRoles.includes(roleInput) ? roleInput : 'admin';
-
-  const existing = await AdminUser.findOne({ email: email.toLowerCase() });
+  const existing = await SuperAdmin.findOne({ email });
   if (existing) {
-    console.log('Email already exists.');
+    err(`Email ${email} already exists`);
+    await ask(`${C.dim}Press Enter to continue...${C.reset}`);
     return;
   }
 
+  const password = passwordInput || randomPassword(14);
   const passwordHash = await hashPassword(password);
 
-  const admin = await AdminUser.create({
-    name,
-    email: email.toLowerCase(),
+  const admin = await SuperAdmin.create({
+    email,
+    fullName,
     passwordHash,
-    role,
-    active: true
+    role: 'super_admin',
+    status: 'active',
   });
 
-  console.log('\nAdmin created successfully!');
-  console.log(`  ID: ${admin._id}`);
-  console.log(`  Name: ${admin.name}`);
-  console.log(`  Email: ${admin.email}`);
-  console.log(`  Role: ${admin.role}`);
-};
+  ok(`Created super admin ${admin.fullName} <${admin.email}>`);
 
-const manageAdmins = async () => {
-  console.log('\n=== MANAGE ADMINS ===\n');
+  if (!passwordInput) {
+    line();
+    line(`  ${C.bold}Temporary password:${C.reset} ${C.yellow}${password}${C.reset}`);
+    line(`  ${C.dim}Store this securely — it will not be shown again.${C.reset}`);
+    line();
+  }
 
-  const admins = await AdminUser.find({}).select('name email role active').lean();
+  line(`${C.dim}Sending welcome email...${C.reset}`);
+  try {
+    await emailService.sendMail({
+      to: admin.email,
+      subject: `You have been added as a SmartPOS Super Admin`,
+      html: `
+        <p>Hi ${admin.fullName},</p>
+        <p>Your SmartPOS super admin account has been created.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin:16px 0;">
+          <tr><td style="padding:16px;">
+            <p style="margin:0 0 4px 0;font-size:13px;color:#64748b;">Login email</p>
+            <p style="margin:0 0 12px 0;font-size:14px;"><strong>${admin.email}</strong></p>
+            <p style="margin:0 0 4px 0;font-size:13px;color:#64748b;">Temporary password</p>
+            <p style="margin:0;font-size:14px;"><strong>${password}</strong></p>
+          </td></tr>
+        </table>
+        <p>Log in and change your password immediately.</p>
+        <p><a href="${env.adminUrl}/login">Open admin panel</a></p>
+      `,
+      text: `Hi ${admin.fullName},\n\nYour SmartPOS super admin account was created.\nEmail: ${admin.email}\nPassword: ${password}\n\nLog in: ${env.adminUrl}/login`,
+    });
+    ok(`Welcome email sent to ${maskEmail(admin.email)}`);
+  } catch (e) {
+    warn(`Welcome email failed: ${e.message}`);
+  }
+
+  await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+}
+
+async function manageSuperAdmin() {
+  heading('Manage super admins');
+  const admins = await SuperAdmin.find().sort({ createdAt: 1 }).lean();
 
   if (!admins.length) {
-    console.log('No admins found.');
+    warn('No super admins found');
+    await ask(`${C.dim}Press Enter to continue...${C.reset}`);
     return;
   }
 
-  admins.forEach((admin, index) => {
-    console.log(`[${index + 1}] ${admin.name} (${admin.email}) - ${admin.role} - ${admin.active ? 'active' : 'inactive'}`);
+  admins.forEach((a, i) => {
+    line(`  ${C.bold}${i + 1}.${C.reset} ${a.fullName} ${C.dim}<${maskEmail(a.email)}>${C.reset} — ${a.status}`);
   });
+  line();
+  line(`  ${C.dim}0.  Back${C.reset}`);
+  line();
 
-  const choice = await question('\nSelect admin number: ');
-  const admin = admins[parseInt(choice, 10) - 1];
+  const choice = await ask(`${C.cyan}›${C.reset} Select admin: `);
+  const index = parseInt(choice, 10) - 1;
 
-  if (!admin) {
-    console.log('Invalid selection.');
-    return;
-  }
+  if (isNaN(index) || index < 0 || index >= admins.length) return;
 
-  console.log('\n1. Deactivate');
-  console.log('2. Activate');
-  console.log('3. Delete');
-  console.log('4. Change Role');
-  console.log('5. Reset Password');
-  console.log('6. Back');
+  const admin = admins[index];
+  clear();
+  heading(`Manage: ${admin.fullName}`);
 
-  const action = await question('Select action: ');
+  line(`  ${C.bold}1${C.reset}.  Reset password`);
+  line(`  ${C.bold}2${C.reset}.  Activate`);
+  line(`  ${C.bold}3${C.reset}.  Suspend`);
+  line(`  ${C.bold}4${C.reset}.  Delete`);
+  line();
+  line(`  ${C.dim}0.  Back${C.reset}`);
+  line();
 
-  switch (action) {
-    case '1':
-      await AdminUser.updateOne({ _id: admin._id }, { active: false });
-      console.log('Admin deactivated.');
-      break;
+  const action = await ask(`${C.cyan}›${C.reset} Action: `);
 
-    case '2':
-      await AdminUser.updateOne({ _id: admin._id }, { active: true });
-      console.log('Admin activated.');
-      break;
+  if (action === '1') {
+    const newPassword = await askHidden('New password (leave blank to generate): ');
+    const password = newPassword || randomPassword(14);
+    admin.passwordHash = await hashPassword(password);
 
-    case '3': {
-      const confirm = await question(`Delete ${admin.email}? (yes/no): `);
-      if (confirm.toLowerCase() === 'yes') {
-        await AdminUser.deleteOne({ _id: admin._id });
-        console.log('Admin deleted.');
-      } else {
-        console.log('Cancelled.');
-      }
-      break;
+    await SuperAdmin.updateOne(
+      { _id: admin._id },
+      { $set: { passwordHash: admin.passwordHash } }
+    );
+
+    ok(`Password reset for ${admin.email}`);
+    if (!newPassword) {
+      line();
+      line(`  ${C.bold}New password:${C.reset} ${C.yellow}${password}${C.reset}`);
+      line();
     }
-
-    case '4': {
-      const newRole = await question('New Role (super_admin/admin/support/read_only): ');
-      const roles = ['super_admin', 'admin', 'support', 'read_only'];
-      if (!roles.includes(newRole)) {
-        console.log('Invalid role.');
-        break;
-      }
-      await AdminUser.updateOne({ _id: admin._id }, { role: newRole });
-      console.log('Role updated.');
-      break;
-    }
-
-    case '5': {
-      const newPassword = await question('New Password: ');
-      if (!newPassword || newPassword.length < 8) {
-        console.log('Password must be at least 8 characters.');
-        break;
-      }
-      const passwordHash = await hashPassword(newPassword);
-      await AdminUser.updateOne({ _id: admin._id }, { passwordHash });
-      console.log('Password reset.');
-      break;
-    }
-
-    default:
-      console.log('Back to main menu.');
-  }
-};
-
-const listCollections = async () => {
-  console.log('\n=== DATABASE COLLECTIONS ===\n');
-
-  const collections = await mongoose.connection.db.listCollections().toArray();
-
-  if (!collections.length) {
-    console.log('No collections found.');
-    return;
-  }
-
-  for (let i = 0; i < collections.length; i++) {
-    const name = collections[i].name;
-    const count = await mongoose.connection.db.collection(name).countDocuments();
-    console.log(`[${i + 1}] ${name} — ${count} docs`);
-  }
-
-  console.log(`\nTotal: ${collections.length} collections`);
-};
-
-const dropCollection = async () => {
-  console.log('\n=== DROP COLLECTION ===\n');
-
-  const collections = await mongoose.connection.db.listCollections().toArray();
-
-  collections.forEach((c, index) => {
-    console.log(`[${index + 1}] ${c.name}`);
-  });
-
-  const choice = await question('\nSelect collection number to drop: ');
-  const target = collections[parseInt(choice, 10) - 1];
-
-  if (!target) {
-    console.log('Invalid selection.');
-    return;
-  }
-
-  const confirm = await question(`Are you sure you want to drop "${target.name}"? (yes/no): `);
-
-  if (confirm.toLowerCase() === 'yes') {
-    await mongoose.connection.db.dropCollection(target.name);
-    console.log(`Dropped: ${target.name}`);
-  } else {
-    console.log('Cancelled.');
-  }
-};
-
-const dropEntireDatabase = async () => {
-  console.log('\n=== DROP ENTIRE DATABASE ===\n');
-
-  const confirm = await question('WARNING: This will delete ALL data. Type "DELETE" to confirm: ');
-
-  if (confirm !== 'DELETE') {
-    console.log('Cancelled.');
-    return;
-  }
-
-  await mongoose.connection.db.dropDatabase();
-  console.log('\nEntire database dropped successfully.');
-};
-
-const showMenu = () => {
-  console.log('\n=== SmartPOS ADMIN CLI ===\n');
-  console.log('1. List Admins');
-  console.log('2. Create Admin');
-  console.log('3. Manage Admins');
-  console.log('4. Database');
-  console.log('0. Exit');
-};
-
-const databaseMenu = async () => {
-  console.log('\n=== DATABASE ===\n');
-  console.log('1. List Collections');
-  console.log('2. Drop Collection');
-  console.log('3. Drop Entire Database');
-  console.log('0. Back');
-
-  const choice = await question('\nSelect option: ');
-
-  switch (choice) {
-    case '1': await listCollections(); break;
-    case '2': await dropCollection(); break;
-    case '3': await dropEntireDatabase(); break;
-    case '0': return;
-    default: console.log('Invalid option.');
-  }
-};
-
-const main = async () => {
-  await connectDB();
-
-  while (true) {
-    showMenu();
-    const choice = await question('\nSelect option: ');
 
     try {
-      switch (choice) {
-        case '1': await listAdmins(); break;
-        case '2': await createAdmin(); break;
-        case '3': await manageAdmins(); break;
-        case '4': await databaseMenu(); break;
-        case '0':
-          console.log('Exiting...');
-          await mongoose.disconnect();
-          rl.close();
-          return;
-        default:
-          console.log('Invalid option.');
+      await emailService.sendMail({
+        to: admin.email,
+        subject: 'Your SmartPOS admin password was reset',
+        html: `<p>Hi ${admin.fullName},</p><p>Your admin password was reset by the platform operator.</p>${!newPassword ? `<p><strong>New password:</strong> ${password}</p>` : ''}<p>Change it after your next login.</p>`,
+        text: `Hi ${admin.fullName}, your SmartPOS admin password was reset.${!newPassword ? ` New password: ${password}` : ''}`,
+      });
+      ok('Notification email sent');
+    } catch (e) {
+      warn(`Email failed: ${e.message}`);
+    }
+  } else if (action === '2') {
+    await SuperAdmin.updateOne({ _id: admin._id }, { $set: { status: 'active' } });
+    ok(`${admin.email} activated`);
+  } else if (action === '3') {
+    await SuperAdmin.updateOne({ _id: admin._id }, { $set: { status: 'suspended' } });
+    ok(`${admin.email} suspended`);
+  } else if (action === '4') {
+    const confirm = await ask(`${C.red}Type DELETE to confirm:${C.reset} `);
+    if (confirm === 'DELETE') {
+      const count = await SuperAdmin.countDocuments({ status: 'active' });
+      if (admin.status === 'active' && count <= 1) {
+        err('Cannot delete the last active super admin');
+      } else {
+        await SuperAdmin.deleteOne({ _id: admin._id });
+        ok(`${admin.email} deleted`);
       }
-    } catch (err) {
-      console.error('Error:', err.message);
+    } else {
+      warn('Cancelled');
     }
   }
-};
 
-main().catch(async (error) => {
-  console.error('Error:', error.message);
-  await mongoose.disconnect();
+  await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+}
+
+async function listCollections() {
+  heading('Database collections');
+
+  const db = mongoose.connection.db;
+  const collections = await db.listCollections().toArray();
+
+  if (!collections.length) {
+    warn('No collections found');
+  } else {
+    for (const c of collections) {
+      const count = await db.collection(c.name).countDocuments();
+      const stats = await db.collection(c.name).estimatedDocumentCount();
+      line(
+        `  ${C.bold}${c.name.padEnd(28)}${C.reset} ${C.dim}${String(count).padStart(8)}${C.reset} docs`
+      );
+    }
+  }
+
+  await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+}
+
+async function dropCollection() {
+  heading('Drop a collection');
+  const db = mongoose.connection.db;
+  const collections = await db.listCollections().toArray();
+
+  if (!collections.length) {
+    warn('No collections found');
+    await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+    return;
+  }
+
+  collections.forEach((c, i) => {
+    line(`  ${C.bold}${i + 1}.${C.reset} ${c.name}`);
+  });
+  line();
+  line(`  ${C.dim}0.  Back${C.reset}`);
+  line();
+
+  const choice = await ask(`${C.cyan}›${C.reset} Select collection: `);
+  const index = parseInt(choice, 10) - 1;
+
+  if (isNaN(index) || index < 0 || index >= collections.length) return;
+
+  const name = collections[index].name;
+  const confirm = await ask(`${C.red}Type ${name} to confirm drop:${C.reset} `);
+
+  if (confirm === name) {
+    await db.collection(name).drop().catch(() => {});
+    ok(`Collection "${name}" dropped`);
+  } else {
+    warn('Cancelled');
+  }
+
+  await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+}
+
+async function dropDatabase() {
+  heading('Drop entire database');
+
+  const db = mongoose.connection.db;
+  const dbName = db.databaseName;
+
+  warn(`This will permanently delete ALL data in "${dbName}".`);
+  line();
+
+  const confirm = await ask(`${C.red}Type ${dbName} to confirm:${C.reset} `);
+
+  if (confirm !== dbName) {
+    warn('Cancelled');
+    await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+    return;
+  }
+
+  const second = await ask(`${C.red}Type DROP DATABASE to confirm again:${C.reset} `);
+  if (second !== 'DROP DATABASE') {
+    warn('Cancelled');
+    await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+    return;
+  }
+
+  await db.dropDatabase();
+  ok(`Database "${dbName}" dropped`);
+
+  await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+}
+
+async function main() {
+  clear();
+  line(`${C.dim}Connecting to MongoDB...${C.reset}`);
+
+  try {
+    await connectDB();
+    ok('Connected');
+  } catch (e) {
+    err(`Connection failed: ${e.message}`);
+    process.exit(1);
+  }
+
+  while (true) {
+    const choice = await menu();
+
+    try {
+      if (choice === '1') await listSuperAdmins();
+      else if (choice === '2') await createSuperAdmin();
+      else if (choice === '3') await manageSuperAdmin();
+      else if (choice === '4') await listCollections();
+      else if (choice === '5') await dropCollection();
+      else if (choice === '6') await dropDatabase();
+      else if (choice === '0') break;
+    } catch (e) {
+      err(e.message);
+      await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+    }
+  }
+
   rl.close();
-});
+  await disconnectDB();
+  line();
+  ok('Bye');
+  process.exit(0);
+}
+
+main();

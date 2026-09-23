@@ -1,132 +1,115 @@
-const { sendSms } = require('../config/brevo');
-const smsTemplates = require('../templates/smsTemplates');
-const { getCache } = require('../config/redis');
-const env = require('../config/env');
-const { formatDate } = require('../utils/date');
-const logger = require('../utils/logger');
+const { brevo, brevoSender } = require('../config/brevo');
+const { smsTemplates } = require('../templates/smsTemplates');
+const { ApiError } = require('../utils/apiError');
+const { logger } = require('../utils/logger');
+const { env } = require('../config/env');
 
-async function getSettings() {
-  const settings = await getCache('admin:settings');
-  return {
-    enabled: settings?.sms?.enabled ?? true,
-    platformName: settings?.branding?.platformName || 'SmartPOS'
-  };
+function mask(phone) {
+  const s = String(phone);
+  if (s.length < 6) return '[redacted]';
+  return `${s.slice(0, 4)}***${s.slice(-2)}`;
 }
 
-async function send({ to, template, data }) {
-  const settings = await getSettings();
-  if (!settings.enabled) {
-    logger.info({ to, template }, 'SMS disabled — skipping');
-    return null;
+function normalizePhone(phone) {
+  let s = String(phone).replace(/\s+/g, '').replace(/[^\d+]/g, '');
+  if (s.startsWith('0')) s = `+254${s.slice(1)}`;
+  if (!s.startsWith('+')) s = `+${s}`;
+  return s;
+}
+
+async function sendSms(to, content, type = 'transactional') {
+  if (!env.brevo.enabled) {
+    logger.warn({ to: mask(to) }, 'sms skipped: brevo disabled');
+    return { skipped: true };
   }
 
-  const builder = smsTemplates[template];
-  if (!builder) throw new Error(`Unknown SMS template: ${template}`);
-
-  const message = builder({ platformName: settings.platformName, ...data });
+  const recipient = normalizePhone(to);
 
   try {
-    const result = await sendSms({ to, message });
-    logger.info({ to, template }, `SMS sent: ${template}`);
-    return result;
-  } catch (err) {
-    logger.error({ err, to, template }, `SMS failed: ${template}`);
-    throw err;
-  }
-}
-
-async function sendTrialReminder(client, days) {
-  if (!client.ownerPhone) return null;
-  if (days !== 1) return null;
-  return send({
-    to: client.ownerPhone,
-    template: 'trialReminder1',
-    data: { upgradeUrl: `${env.APP_URL}/billing` }
-  });
-}
-
-async function sendRenewalReminder(client, days) {
-  if (!client.ownerPhone) return null;
-  if (days !== 1) return null;
-  return send({
-    to: client.ownerPhone,
-    template: 'renewalReceived',
-    data: { periodEnd: formatDate(client.periodEnd) }
-  });
-}
-
-async function sendPaymentFailed(client) {
-  if (!client.ownerPhone) return null;
-  return send({
-    to: client.ownerPhone,
-    template: 'paymentFailed',
-    data: { portalUrl: `${env.APP_URL}/billing` }
-  });
-}
-
-async function sendSuspended(client) {
-  if (!client.ownerPhone) return null;
-  return send({
-    to: client.ownerPhone,
-    template: 'suspended',
-    data: { renewUrl: `${env.APP_URL}/billing` }
-  });
-}
-
-async function sendAccountSuspended(client) {
-  if (!client.ownerPhone) return null;
-  return send({
-    to: client.ownerPhone,
-    template: 'accountSuspended',
-    data: {}
-  });
-}
-
-async function sendRestored(client) {
-  if (!client.ownerPhone) return null;
-  return send({
-    to: client.ownerPhone,
-    template: 'restored',
-    data: {}
-  });
-}
-
-async function sendRenewalReceived(client) {
-  if (!client.ownerPhone) return null;
-  return send({
-    to: client.ownerPhone,
-    template: 'renewalReceived',
-    data: { periodEnd: formatDate(client.periodEnd) }
-  });
-}
-
-async function sendTwoFactor(phone, code) {
-  return send({
-    to: phone,
-    template: 'twoFactor',
-    data: { code }
-  });
-}
-
-async function sendBackupFailed(backup, recipients) {
-  for (const phone of recipients) {
-    await send({
-      to: phone,
-      template: 'backupFailed',
-      data: {}
+    await brevo.post('/transactionalSMS/sms', {
+      sender: brevoSender,
+      recipient,
+      content,
+      type,
     });
+    logger.info({ to: mask(to), type }, 'sms sent');
+    return { sent: true };
+  } catch (err) {
+    logger.error({ err: err.message, to: mask(to) }, 'sms failed');
+    throw ApiError.badRequest('SMS_FAILED', 'Could not send SMS');
   }
+}
+
+async function sendOtp(to, data) {
+  return sendSms(to, smsTemplates.otp(data));
+}
+
+async function sendApproval(to, data) {
+  return sendSms(to, smsTemplates.approval(data));
+}
+
+async function sendRejection(to, data) {
+  return sendSms(to, smsTemplates.rejection(data));
+}
+
+async function sendLowStockAlert(to, data) {
+  return sendSms(to, smsTemplates.lowStockAlert(data));
+}
+
+async function sendOutOfStock(to, data) {
+  return sendSms(to, smsTemplates.outOfStock(data));
+}
+
+async function sendDailySummary(to, data) {
+  return sendSms(to, smsTemplates.dailySummary(data));
+}
+
+async function sendSubscriptionPaid(to, data) {
+  return sendSms(to, smsTemplates.subscriptionPaid(data));
+}
+
+async function sendSubscriptionExpiring(to, data) {
+  return sendSms(to, smsTemplates.subscriptionExpiring(data));
+}
+
+async function sendSubscriptionExpired(to, data) {
+  return sendSms(to, smsTemplates.subscriptionExpired(data));
+}
+
+async function sendSubscriptionFailed(to, data) {
+  return sendSms(to, smsTemplates.subscriptionFailed(data));
+}
+
+async function sendAdminServiceDown(to, data) {
+  return sendSms(to, smsTemplates.adminServiceDown(data));
+}
+
+async function sendInvoice(to, data) {
+  return sendSms(to, smsTemplates.invoice(data));
+}
+
+async function sendInvoiceReminder(to, data) {
+  return sendSms(to, smsTemplates.invoiceReminder(data));
+}
+
+async function sendInvoiceOverdue(to, data) {
+  return sendSms(to, smsTemplates.invoiceOverdue(data));
 }
 
 module.exports = {
-  send,
-  sendTrialReminder,
-  sendRenewalReminder,
-  sendPaymentFailed,
-  sendSuspended,
-  sendAccountSuspended,
-  sendRestored,
-  sendRenewalReceived,
-  sendTwoFactor,
-  sendBackupFailed
+  sendSms,
+  sendOtp,
+  sendApproval,
+  sendRejection,
+  sendLowStockAlert,
+  sendOutOfStock,
+  sendDailySummary,
+  sendSubscriptionPaid,
+  sendSubscriptionExpiring,
+  sendSubscriptionExpired,
+  sendSubscriptionFailed,
+  sendAdminServiceDown,
+  sendInvoice,
+  sendInvoiceReminder,
+  sendInvoiceOverdue,
 };

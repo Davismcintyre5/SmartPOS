@@ -1,178 +1,77 @@
-const Client = require('../../models/admin/Client');
-const Settings = require('../../models/client/Settings');
-const Sale = require('../../models/client/Sale');
-const cloudinaryService = require('../../services/cloudinaryService');
-const { success } = require('../../utils/response');
-const asyncHandler = require('../../utils/asyncHandler');
-const ApiError = require('../../utils/ApiError');
-
-// ── Helpers ─────────────────────────────────────────────
-
-async function getOrCreateSettings(tenantId) {
-  let settings = await Settings.findOne({ tenantId });
-  if (!settings) {
-    const client = await Client.findById(tenantId).lean();
-    settings = await Settings.create({
-      tenantId,
-      storeName: client?.name || '',
-      currency: client?.storeCurrency || 'KES',
-      taxRate: client?.settings?.taxRate ?? 0,
-      taxLabel: client?.settings?.taxLabel || 'VAT',
-      taxInclusive: client?.settings?.taxInclusive ?? false
-    });
-  }
-  return settings;
-}
-
-// ── Get all settings ────────────────────────────────────
+const { asyncHandler } = require('../../utils/asyncHandler');
+const { ok } = require('../../utils/apiResponse');
+const { ApiError } = require('../../utils/apiError');
+const Tenant = require('../../models/admin/Tenant');
+const PaymentMethod = require('../../models/admin/PaymentMethod');
 
 const get = asyncHandler(async (req, res) => {
-  const settings = await getOrCreateSettings(req.tenant._id);
-  return success(res, settings, 'Settings');
-});
+  const tenant = await Tenant.findById(req.tenantId).lean();
+  if (!tenant) throw ApiError.notFound('TENANT_NOT_FOUND', 'Tenant not found');
 
-// ── Update general ──────────────────────────────────────
+  const availableMethods = await PaymentMethod.find({ enabled: true })
+    .sort({ order: 1 })
+    .select('code label')
+    .lean();
+
+  const enabledForTenant = tenant.settings?.paymentMethods || [];
+
+  return ok(res, {
+    settings: tenant.settings || {},
+    paymentMethods: availableMethods,
+    enabledPaymentMethods: enabledForTenant,
+  });
+});
 
 const update = asyncHandler(async (req, res) => {
-  const settings = await getOrCreateSettings(req.tenant._id);
+  const allowed = ['currency', 'taxRate', 'taxInclusive', 'receiptTemplate', 'receiptFooter'];
+  const patch = {};
 
-  const allowed = [
-    'storeName', 'logoUrl', 'timezone', 'language',
-    'dateFormat', 'timeFormat', 'lowStockAlerts', 'lowStockThreshold',
-    'allowNegativeStock', 'requireCustomerForSale'
-  ];
-
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) settings[key] = req.body[key];
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) patch[`settings.${k}`] = req.body[k];
   }
 
-  await settings.save();
-  return success(res, settings, 'Settings updated');
+  if (!Object.keys(patch).length) {
+    throw ApiError.badRequest('NO_CHANGES', 'No valid fields');
+  }
+
+  const tenant = await Tenant.findByIdAndUpdate(
+    req.tenantId,
+    { $set: patch },
+    { new: true }
+  ).lean();
+
+  if (!tenant) throw ApiError.notFound('TENANT_NOT_FOUND', 'Tenant not found');
+  return ok(res, tenant.settings);
 });
 
-// ── Receipt ─────────────────────────────────────────────
+const enablePayment = asyncHandler(async (req, res) => {
+  const { code } = req.params;
 
-const updateReceipt = asyncHandler(async (req, res) => {
-  const settings = await getOrCreateSettings(req.tenant._id);
+  const method = await PaymentMethod.findOne({ code, enabled: true }).lean();
+  if (!method) throw ApiError.badRequest('METHOD_UNAVAILABLE', 'Payment method not available');
 
-  const allowed = [
-    'receiptHeader', 'receiptFooter', 'receiptShowLogo',
-    'receiptShowTax', 'autoPrintReceipt'
-  ];
+  const tenant = await Tenant.findById(req.tenantId);
+  if (!tenant) throw ApiError.notFound('TENANT_NOT_FOUND', 'Tenant not found');
 
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) settings[key] = req.body[key];
-  }
+  const list = new Set(tenant.settings?.paymentMethods || []);
+  list.add(code);
+  tenant.settings = { ...tenant.settings, paymentMethods: Array.from(list) };
+  await tenant.save();
 
-  await settings.save();
-  return success(res, settings, 'Receipt settings updated');
+  return ok(res, { enabledPaymentMethods: Array.from(list) });
 });
 
-// ── Tax & Discount ──────────────────────────────────────
+const disablePayment = asyncHandler(async (req, res) => {
+  const { code } = req.params;
 
-const updateTax = asyncHandler(async (req, res) => {
-  const settings = await getOrCreateSettings(req.tenant._id);
+  const tenant = await Tenant.findById(req.tenantId);
+  if (!tenant) throw ApiError.notFound('TENANT_NOT_FOUND', 'Tenant not found');
 
-  const taxFields = ['taxRate', 'taxLabel', 'taxInclusive'];
-  for (const key of taxFields) {
-    if (req.body[key] !== undefined) settings[key] = req.body[key];
-  }
+  const list = (tenant.settings?.paymentMethods || []).filter((c) => c !== code);
+  tenant.settings = { ...tenant.settings, paymentMethods: list };
+  await tenant.save();
 
-  if (req.body.discount && typeof req.body.discount === 'object') {
-    settings.discount = { ...settings.discount.toObject?.() || settings.discount, ...req.body.discount };
-  }
-
-  await settings.save();
-  return success(res, settings, 'Tax and discount updated');
+  return ok(res, { enabledPaymentMethods: list });
 });
 
-// ── Currency (guarded) ──────────────────────────────────
-
-const updateCurrency = asyncHandler(async (req, res) => {
-  const settings = await getOrCreateSettings(req.tenant._id);
-  const { currency } = req.body;
-
-  if (!currency) throw ApiError.badRequest('currency required');
-
-  if (currency !== settings.currency) {
-    const saleExists = await Sale.exists({ tenantId: req.tenant._id });
-    if (saleExists) {
-      throw ApiError.badRequest('Cannot change currency after sales have been made');
-    }
-    settings.currency = currency;
-  }
-
-  await settings.save();
-  return success(res, settings, 'Currency updated');
-});
-
-// ── Loyalty ─────────────────────────────────────────────
-
-const updateLoyalty = asyncHandler(async (req, res) => {
-  const settings = await getOrCreateSettings(req.tenant._id);
-
-  if (req.body.loyalty && typeof req.body.loyalty === 'object') {
-    settings.loyalty = { ...settings.loyalty.toObject?.() || settings.loyalty, ...req.body.loyalty };
-  }
-
-  await settings.save();
-  return success(res, settings, 'Loyalty settings updated');
-});
-
-// ── AI ──────────────────────────────────────────────────
-
-const updateAi = asyncHandler(async (req, res) => {
-  const settings = await getOrCreateSettings(req.tenant._id);
-
-  if (req.body.ai && typeof req.body.ai === 'object') {
-    settings.ai = { ...settings.ai.toObject?.() || settings.ai, ...req.body.ai };
-  }
-
-  await settings.save();
-  return success(res, settings, 'AI settings updated');
-});
-
-// ── Sync ────────────────────────────────────────────────
-
-const updateSync = asyncHandler(async (req, res) => {
-  const settings = await getOrCreateSettings(req.tenant._id);
-
-  if (req.body.sync && typeof req.body.sync === 'object') {
-    settings.sync = { ...settings.sync.toObject?.() || settings.sync, ...req.body.sync };
-  }
-
-  await settings.save();
-  return success(res, settings, 'Sync settings updated');
-});
-
-// ── Logo upload ─────────────────────────────────────────
-
-const uploadLogo = asyncHandler(async (req, res) => {
-  if (!req.file) throw ApiError.badRequest('No file uploaded');
-
-  const settings = await getOrCreateSettings(req.tenant._id);
-
-  const result = await cloudinaryService.uploadLogo(req.file.buffer, req.tenant._id.toString());
-  settings.logoUrl = result.url;
-  await settings.save();
-
-  const client = await Client.findById(req.tenant._id);
-  if (client) {
-    client.logoUrl = result.url;
-    await client.save();
-  }
-
-  return success(res, { logoUrl: result.url }, 'Logo uploaded');
-});
-
-module.exports = {
-  get,
-  update,
-  updateReceipt,
-  updateTax,
-  updateCurrency,
-  updateLoyalty,
-  updateAi,
-  updateSync,
-  uploadLogo
-};
+module.exports = { get, update, enablePayment, disablePayment };

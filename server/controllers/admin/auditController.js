@@ -1,33 +1,34 @@
-const AuditLog = require('../../models/admin/AuditLog');
-const { success, paginated } = require('../../utils/response');
-const { getPagination, buildPaginationMeta } = require('../../utils/pagination');
-const asyncHandler = require('../../utils/asyncHandler');
+const { asyncHandler } = require('../../utils/asyncHandler');
+const { paginated } = require('../../utils/apiResponse');
+const { parsePagination } = require('../../utils/pagination');
+const { assertObjectId } = require('../../utils/validateObjectId');
+const AdminAction = require('../../models/admin/AdminAction');
 
 const list = asyncHandler(async (req, res) => {
-  const { page, limit, skip } = getPagination(req.query);
-  const { adminId, action, targetType, from, to } = req.query;
-
-  const query = {};
-  if (adminId) query.adminId = adminId;
-  if (action) query.action = action;
-  if (targetType) query.targetType = targetType;
-  if (from || to) {
-    query.createdAt = {};
-    if (from) query.createdAt.$gte = new Date(from);
-    if (to) query.createdAt.$lte = new Date(to);
-  }
+  const { page, limit, skip } = parsePagination(req.query);
+  const filter = {};
+  if (req.query.adminId) filter.adminId = req.query.adminId;
+  if (req.query.action) filter.action = { $regex: req.query.action, $options: 'i' };
 
   const [items, total] = await Promise.all([
-    AuditLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    AuditLog.countDocuments(query)
+    AdminAction.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    AdminAction.countDocuments(filter),
   ]);
 
-  return paginated(res, items, buildPaginationMeta(total, page, limit));
+  return paginated(res, items, page, limit, total);
 });
 
-const getForTarget = asyncHandler(async (req, res) => {
-  const items = await AuditLog.find({ targetId: req.params.targetId }).sort({ createdAt: -1 }).lean();
-  return success(res, items, 'Audit log for target');
+const byTenant = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.tenantId, 'tenantId');
+  const { page, limit, skip } = parsePagination(req.query);
+
+  const filter = { tenantId: req.params.tenantId };
+  const [items, total] = await Promise.all([
+    AdminAction.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    AdminAction.countDocuments(filter),
+  ]);
+
+  return paginated(res, items, page, limit, total);
 });
 
-module.exports = { list, getForTarget };
+module.exports = { list, byTenant };

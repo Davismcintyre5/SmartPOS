@@ -1,17 +1,17 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
+const c = require('../../controllers/client/customerController');
+const { roles } = require('../../middleware/client/roles');
+const { requireActive } = require('../../middleware/client/statusGuard');
 
-const customerController = require('../../controllers/client/customerController');
-const auth = require('../../middleware/client/auth');
-const period = require('../../middleware/client/period');
+const router = Router();
 
-router.use(auth, period);
+router.use(requireActive);
+router.use(roles('owner', 'manager'));
 
-router.get('/', customerController.list);
-router.get('/search', customerController.search);
-router.post('/', customerController.create);
-router.get('/:id', customerController.getOne);
-router.put('/:id', customerController.update);
-router.post('/:id/loyalty', customerController.adjustLoyalty);
+router.get('/', c.list);
+router.post('/', c.create);
+router.get('/:id', c.get);
+router.patch('/:id', c.update);
+router.delete('/:id', c.remove);
 
 module.exports = router;

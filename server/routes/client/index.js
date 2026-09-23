@@ -1,28 +1,41 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
+const { clientAuth } = require('../../middleware/client/clientAuth');
+const { tenantScope } = require('../../middleware/client/tenantScope');
 
+const authRoutes = require('./authRoutes');
+const profileRoutes = require('./profileRoutes');
 const productRoutes = require('./productRoutes');
-const categoryRoutes = require('./categoryRoutes');
 const saleRoutes = require('./saleRoutes');
-const inventoryRoutes = require('./inventoryRoutes');
+const paymentRoutes = require('./paymentRoutes');
 const customerRoutes = require('./customerRoutes');
-const reportRoutes = require('./reportRoutes');
-const staffRoutes = require('./staffRoutes');
+const inventoryRoutes = require('./inventoryRoutes');
+const userRoutes = require('./userRoutes');
+const invitationRoutes = require('./invitationRoutes');
 const settingsRoutes = require('./settingsRoutes');
-const syncRoutes = require('./syncRoutes');
-const billingRoutes = require('./billingRoutes');
+const insightRoutes = require('./insightRoutes');
+const reportRoutes = require('./reportRoutes');
 const receiptRoutes = require('./receiptRoutes');
+const chatRoutes = require('./chatRoutes');
+const supplierRoutes = require('./supplierRoutes');
 
+const router = Router();
+
+router.use(clientAuth, tenantScope);
+
+router.use('/auth', authRoutes);
+router.use('/profile', profileRoutes);
 router.use('/products', productRoutes);
-router.use('/categories', categoryRoutes);
 router.use('/sales', saleRoutes);
-router.use('/inventory', inventoryRoutes);
+router.use('/payments', paymentRoutes);
 router.use('/customers', customerRoutes);
-router.use('/reports', reportRoutes);
-router.use('/staff', staffRoutes);
+router.use('/inventory', inventoryRoutes);
+router.use('/users', userRoutes);
+router.use('/invitations', invitationRoutes);
 router.use('/settings', settingsRoutes);
-router.use('/sync', syncRoutes);
-router.use('/billing', billingRoutes);
+router.use('/insights', insightRoutes);
+router.use('/reports', reportRoutes);
 router.use('/receipts', receiptRoutes);
+router.use('/chat', chatRoutes);
+router.use('/suppliers', supplierRoutes);
 
 module.exports = router;

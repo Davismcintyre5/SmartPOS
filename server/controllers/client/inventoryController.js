@@ -1,72 +1,70 @@
+const { asyncHandler } = require('../../utils/asyncHandler');
+const { ok, paginated } = require('../../utils/apiResponse');
+const { parsePagination } = require('../../utils/pagination');
+const { assertObjectId } = require('../../utils/validateObjectId');
+const { tenantFilter } = require('../../utils/tenantScope');
+const { ApiError } = require('../../utils/apiError');
 const Product = require('../../models/client/Product');
-const StockMovement = require('../../models/client/StockMovement');
-const { success, paginated } = require('../../utils/response');
-const { getPagination, buildPaginationMeta } = require('../../utils/pagination');
-const asyncHandler = require('../../utils/asyncHandler');
-const ApiError = require('../../utils/ApiError');
-const crypto = require('crypto');
+const InventoryMovement = require('../../models/client/InventoryMovement');
 
-const getStock = asyncHandler(async (req, res) => {
-  const product = await Product.findOne({
-    _id: req.params.productId,
-    tenantId: req.tenant._id
-  }).select('name sku stock lowStockThreshold').lean();
-  if (!product) throw ApiError.notFound('Product not found');
-  return success(res, product, 'Stock');
+const list = asyncHandler(async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query);
+  const filter = tenantFilter(req, { active: true });
+
+  if (req.query.lowStock === 'true') {
+    filter.$expr = { $lte: ['$stock', '$lowStockThreshold'] };
+  }
+
+  const [items, total] = await Promise.all([
+    Product.find(filter).sort({ stock: 1 }).skip(skip).limit(limit).lean(),
+    Product.countDocuments(filter),
+  ]);
+
+  return paginated(res, items, page, limit, total);
 });
 
 const adjust = asyncHandler(async (req, res) => {
-  const { productId, delta, reason = 'adjustment' } = req.body;
-
-  if (!productId || typeof delta !== 'number' || delta === 0) {
-    throw ApiError.badRequest('productId and non-zero delta required');
+  const { productId, qty, reason } = req.body;
+  if (!productId || qty === undefined) {
+    throw ApiError.badRequest('MISSING_FIELDS', 'productId and qty required');
   }
 
-  const product = await Product.findOne({ _id: productId, tenantId: req.tenant._id });
-  if (!product) throw ApiError.notFound('Product not found');
+  assertObjectId(productId, 'productId');
 
-  await Product.updateOne({ _id: product._id }, { $inc: { stock: delta } });
+  const product = await Product.findOne(tenantFilter(req, { _id: productId }));
+  if (!product) throw ApiError.notFound('PRODUCT_NOT_FOUND', 'Product not found');
 
-  const movement = await StockMovement.create({
-    _id: crypto.randomUUID(),
-    tenantId: req.tenant._id,
+  const newStock = product.stock + Number(qty);
+  if (newStock < 0) throw ApiError.badRequest('NEGATIVE_STOCK', 'Stock cannot go below zero');
+
+  product.stock = newStock;
+  await product.save();
+
+  await InventoryMovement.create({
+    tenantId: req.tenantId,
     productId: product._id,
-    delta,
-    reason,
-    userId: req.user.userId
+    type: 'adjustment',
+    qty: Number(qty),
+    reason: reason || 'Manual adjustment',
+    refType: 'manual',
+    userId: req.user.id,
+    balanceAfter: newStock,
   });
 
-  return success(res, movement, 'Stock adjusted');
+  return ok(res, { productId: product._id, stock: newStock });
 });
 
-const listMovements = asyncHandler(async (req, res) => {
-  const { page, limit, skip } = getPagination(req.query);
-  const { productId, reason } = req.query;
+const history = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.productId, 'productId');
+  const { page, limit, skip } = parsePagination(req.query);
 
-  const query = { tenantId: req.tenant._id };
-  if (productId) query.productId = productId;
-  if (reason) query.reason = reason;
-
+  const filter = tenantFilter(req, { productId: req.params.productId });
   const [items, total] = await Promise.all([
-    StockMovement.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    StockMovement.countDocuments(query)
+    InventoryMovement.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    InventoryMovement.countDocuments(filter),
   ]);
 
-  return paginated(res, items, buildPaginationMeta(total, page, limit));
+  return paginated(res, items, page, limit, total);
 });
 
-const lowStock = asyncHandler(async (req, res) => {
-  const items = await Product.aggregate([
-    { $match: { tenantId: req.tenant._id, active: true } },
-    {
-      $match: {
-        $expr: { $lte: ['$stock', '$lowStockThreshold'] }
-      }
-    },
-    { $sort: { stock: 1 } }
-  ]);
-
-  return success(res, items, 'Low stock products');
-});
-
-module.exports = { getStock, adjust, listMovements, lowStock };
+module.exports = { list, adjust, history };

@@ -1,17 +1,13 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
+const c = require('../../controllers/public/authController');
 
-const authController = require('../../controllers/public/authController');
-const { authLimiter } = require('../../middleware/global/rateLimit');
-const clientAuth = require('../../middleware/client/auth');
+const router = Router();
 
-router.post('/login', authLimiter, authController.login);
-router.post('/refresh', authController.refresh);
-router.post('/logout', authController.logout);
-router.post('/forgot-password', authLimiter, authController.forgotPassword);
-router.post('/reset-password', authLimiter, authController.resetPassword);
-
-router.get('/me', clientAuth, authController.me);
-router.post('/change-password', clientAuth, authController.changePassword);
+router.post('/register', c.register);
+router.post('/login', c.login);
+router.post('/verify', c.verifyEmail);
+router.post('/forgot-password', c.forgotPassword);
+router.post('/reset-password', c.resetPassword);
+router.post('/accept-invite', c.acceptInvite);
 
 module.exports = router;

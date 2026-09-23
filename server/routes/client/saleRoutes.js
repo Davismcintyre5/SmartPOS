@@ -1,18 +1,16 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
+const c = require('../../controllers/client/saleController');
+const { roles } = require('../../middleware/client/roles');
+const { requireActive } = require('../../middleware/client/statusGuard');
 
-const saleController = require('../../controllers/client/saleController');
-const auth = require('../../middleware/client/auth');
-const period = require('../../middleware/client/period');
-const requireRole = require('../../middleware/client/role');
+const router = Router();
 
-router.use(auth, period);
+router.use(requireActive);
 
-router.get('/', saleController.list);
-router.get('/summary/today', saleController.todaySummary);
-router.post('/', saleController.create);
-router.get('/:id', saleController.getOne);
-router.post('/:id/refund', requireRole(['owner', 'manager']), saleController.refund);
-router.post('/:id/void', requireRole(['owner', 'manager']), saleController.voidSale);
+router.get('/', c.list);
+router.get('/:id', c.get);
+router.post('/', c.create);
+router.post('/:id/void', roles('owner', 'manager'), c.voidSale);
+router.post('/:id/reprint', c.reprint);
 
 module.exports = router;

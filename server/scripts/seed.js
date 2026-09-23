@@ -1,224 +1,478 @@
-require('./dnsSet');
-
+require('dotenv/config');
 const readline = require('readline');
-const mongoose = require('mongoose');
 
-const { connectDB } = require('../config/db');
-const { hashPassword } = require('../utils/password');
-
-const AdminUser = require('../models/admin/AdminUser');
-const Client = require('../models/admin/Client');
+const { connectDB, disconnectDB, mongoose } = require('../config/db');
 const Plan = require('../models/admin/Plan');
 const PaymentMethod = require('../models/admin/PaymentMethod');
-const AdminSettings = require('../models/admin/AdminSettings');
+const PlatformSetting = require('../models/admin/PlatformSetting');
 const Legal = require('../models/admin/Legal');
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+const C = {
+  reset: '\x1b[0m',
+  dim: '\x1b[2m',
+  bold: '\x1b[1m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+};
 
-const question = (query) => new Promise((resolve) => rl.question(query, resolve));
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-const seedPlans = async () => {
-  console.log('\n=== SEED PLANS ===\n');
+function ask(question) {
+  return new Promise((resolve) => rl.question(question, (a) => resolve(a.trim())));
+}
 
+function clear() {
+  process.stdout.write('\x1b[2J\x1b[0f');
+}
+
+function line(str = '') {
+  console.log(str);
+}
+
+function heading(title) {
+  line();
+  line(`${C.bold}${C.cyan}${title}${C.reset}`);
+  line(`${C.dim}${'─'.repeat(title.length)}${C.reset}`);
+  line();
+}
+
+function ok(msg) {
+  line(`${C.green}✔${C.reset} ${msg}`);
+}
+
+function warn(msg) {
+  line(`${C.yellow}⚠${C.reset} ${msg}`);
+}
+
+function err(msg) {
+  line(`${C.red}✖${C.reset} ${msg}`);
+}
+
+/* ─────────────────────── PLANS ─────────────────────── */
+
+async function seedPlans() {
   const plans = [
-    { _id: 'trial', name: 'Free Trial', code: 'trial', description: '14-day free trial', billingType: 'free', cycle: 'none', durationDays: 14, perpetual: false, prices: { KES: 0, USD: 0, EUR: 0, GBP: 0 }, active: true, position: 1 },
-    { _id: 'starter', name: 'Starter', code: 'starter', description: 'Starter — monthly', billingType: 'recurring', cycle: 'monthly', durationDays: null, perpetual: false, prices: { KES: 250000, USD: 1900, EUR: 1800, GBP: 1500 }, active: true, position: 2 },
-    { _id: 'pro', name: 'Pro', code: 'pro', description: 'Pro — yearly', billingType: 'recurring', cycle: 'yearly', durationDays: null, perpetual: false, prices: { KES: 2500000, USD: 19000, EUR: 18000, GBP: 15000 }, active: true, position: 3 },
-    { _id: 'ent', name: 'Enterprise', code: 'ent', description: 'Enterprise — one-time perpetual', billingType: 'one-time', cycle: 'none', durationDays: null, perpetual: true, prices: { KES: 0, USD: 0, EUR: 0, GBP: 0 }, active: true, position: 4 }
+    {
+      code: 'standard',
+      name: 'Standard',
+      description: 'One-time payment. Full access. No expiry.',
+      price: { amount: 1500, currency: 'KES', interval: 'once' },
+      limits: {
+        maxOwners: 10,
+        maxManagers: 50,
+        maxCashiers: 999,
+        maxProducts: 999999,
+        maxTransactionsPerMonth: 0,
+        maxAiCallsPerDay: 9999,
+      },
+      features: {
+        aiInsights: true,
+        multiLocation: true,
+        api: true,
+        prioritySupport: true,
+        customDomain: true,
+      },
+      isPublic: true,
+      isActive: true,
+      sortOrder: 0,
+      trialDays: 0,
+    },
+    {
+      code: 'starter',
+      name: 'Starter',
+      description: 'For growing businesses',
+      price: { amount: 1500, currency: 'KES', interval: 'month' },
+      limits: {
+        maxOwners: 2,
+        maxManagers: 5,
+        maxCashiers: 10,
+        maxProducts: 1000,
+        maxTransactionsPerMonth: 10000,
+        maxAiCallsPerDay: 50,
+      },
+      features: {
+        aiInsights: true,
+        multiLocation: false,
+        api: false,
+        prioritySupport: false,
+        customDomain: false,
+      },
+      isPublic: true,
+      isActive: true,
+      sortOrder: 1,
+      trialDays: 14,
+    },
+    {
+      code: 'pro',
+      name: 'Pro',
+      description: 'Full power for multi-location',
+      price: { amount: 4500, currency: 'KES', interval: 'month' },
+      limits: {
+        maxOwners: 5,
+        maxManagers: 20,
+        maxCashiers: 100,
+        maxProducts: 10000,
+        maxTransactionsPerMonth: 100000,
+        maxAiCallsPerDay: 500,
+      },
+      features: {
+        aiInsights: true,
+        multiLocation: true,
+        api: true,
+        prioritySupport: true,
+        customDomain: false,
+      },
+      isPublic: true,
+      isActive: true,
+      sortOrder: 2,
+      trialDays: 14,
+    },
   ];
 
+  let upserted = 0;
   for (const plan of plans) {
-    const result = await Plan.updateOne({ _id: plan._id }, { $setOnInsert: plan }, { upsert: true });
-    console.log(result.upsertedCount ? `Created: ${plan.name}` : `Exists: ${plan.name}`);
+    await Plan.updateOne({ code: plan.code }, { $setOnInsert: plan }, { upsert: true });
+    upserted++;
   }
+  ok(`Plans: ${upserted} upserted`);
 
-  console.log('\nPlans seeded.');
-};
+  const existing = await Plan.find({ code: { $nin: plans.map((p) => p.code) } })
+    .select('code')
+    .lean();
+  if (existing.length) {
+    warn(`Other plans found: ${existing.map((p) => p.code).join(', ')}`);
+    warn('Run with --reset-plans flag to remove them (not implemented — do it manually)');
+  }
+}
 
-const seedPaymentMethods = async () => {
-  console.log('\n=== SEED PAYMENT METHODS ===\n');
+/* ─────────────────────── PAYMENT METHODS ─────────────────────── */
 
+async function seedPaymentMethods() {
   const methods = [
-    { _id: 'stripe', name: 'Stripe', provider: 'stripe', type: 'automatic', enabled: true, status: 'not_configured', supportedCurrencies: ['KES', 'USD', 'EUR', 'GBP'], config: { mode: 'test' }, position: 1 },
-    { _id: 'paypal', name: 'PayPal', provider: 'paypal', type: 'automatic', enabled: false, status: 'not_configured', supportedCurrencies: ['USD', 'EUR', 'GBP'], config: { mode: 'sandbox' }, position: 2 },
-    { _id: 'mpesa_stk', name: 'M-Pesa STK Push', provider: 'safaricom', type: 'automatic', enabled: false, status: 'not_configured', supportedCurrencies: ['KES'], config: {}, position: 3 },
-    { _id: 'mpesa_send', name: 'M-Pesa Send Money', provider: 'safaricom', type: 'manual', enabled: false, status: 'not_configured', supportedCurrencies: ['KES'], config: { receivingPhone: '', receivingName: '' }, position: 4 },
-    { _id: 'mpesa_paybill', name: 'M-Pesa Paybill', provider: 'safaricom', type: 'automatic', enabled: false, status: 'not_configured', supportedCurrencies: ['KES'], config: { businessNumber: '', accountPrefix: 'SMART-', mode: 'auto' }, position: 5 },
-    { _id: 'mpesa_till', name: 'M-Pesa Till', provider: 'safaricom', type: 'automatic', enabled: false, status: 'not_configured', supportedCurrencies: ['KES'], config: { tillNumber: '', mode: 'auto' }, position: 6 }
+    {
+      code: 'stripe',
+      label: 'Card (Stripe)',
+      mode: 'auto',
+      enabled: false,
+      order: 1,
+      config: { publishableKey: '', secretKey: '', webhookSecret: '', mode: 'test' },
+    },
+    {
+      code: 'mpesa_stk',
+      label: 'M-Pesa STK',
+      mode: 'auto',
+      enabled: false,
+      order: 2,
+      config: { env: 'sandbox', consumerKey: '', consumerSecret: '', shortcode: '', passkey: '', callbackUrl: '' },
+    },
+    {
+      code: 'cash',
+      label: 'Cash',
+      mode: 'manual',
+      enabled: true,
+      order: 3,
+      config: {},
+    },
+    {
+      code: 'mpesa_send',
+      label: 'M-Pesa Send Money',
+      mode: 'manual',
+      enabled: false,
+      order: 4,
+      config: { phone: '', name: '' },
+    },
+    {
+      code: 'mpesa_till',
+      label: 'M-Pesa Till',
+      mode: 'manual',
+      enabled: false,
+      order: 5,
+      config: { tillNumber: '', name: '' },
+    },
+    {
+      code: 'mpesa_paybill',
+      label: 'M-Pesa Paybill',
+      mode: 'manual',
+      enabled: false,
+      order: 6,
+      config: { paybillNumber: '', accountNumber: '', name: '' },
+    },
+    {
+      code: 'bank',
+      label: 'Bank Transfer',
+      mode: 'manual',
+      enabled: false,
+      order: 7,
+      config: { bankName: '', accountName: '', accountNumber: '', branch: '', swift: '' },
+    },
   ];
 
-  for (const method of methods) {
-    const result = await PaymentMethod.updateOne({ _id: method._id }, { $setOnInsert: method }, { upsert: true });
-    console.log(result.upsertedCount ? `Created: ${method.name}` : `Exists: ${method.name}`);
+  let upserted = 0;
+  for (const m of methods) {
+    await PaymentMethod.updateOne({ code: m.code }, { $setOnInsert: m }, { upsert: true });
+    upserted++;
   }
+  ok(`Payment methods: ${upserted} upserted`);
+}
 
-  console.log('\nPayment methods seeded.');
-};
+/* ─────────────────────── PLATFORM SETTINGS ─────────────────────── */
 
-const seedAdminSettings = async () => {
-  console.log('\n=== SEED ADMIN SETTINGS ===\n');
+async function seedSettings() {
+  const settings = [
+    ['platform_name', 'SmartPOS'],
+    ['platform_logo_url', null],
+    ['support_email', 'support@smartpos.co.ke'],
+    ['support_phone', '+254 700 000 000'],
+    ['platform_website', 'https://smartpos.co.ke'],
+    ['default_currency', 'KES'],
+    ['default_country', 'KE'],
+    ['default_tax_rate', 16],
+    ['tax_inclusive', false],
+    ['min_password_length', 8],
+    ['registration_open', true],
+    ['maintenance_mode', false],
+    ['max_owners_per_tenant', 3],
+    ['cashier_discount_limit', 10],
+    ['cashier_refund_limit', 0],
+    ['manager_can_invite_cashier', false],
+    ['require_shift_clock_in', false],
+    ['backup_auto_enabled', true],
+    ['backup_frequency', 'daily'],
+    ['backup_time', '03:00'],
+    ['backup_retention_days', 90],
+    ['backup_notify_on_fail', true],
+    ['backup_notify_emails', []],
+    ['feature_pos', true],
+    ['feature_inventory', true],
+    ['feature_ai_insights', true],
+    ['feature_multi_location', false],
+    ['feature_loyalty', false],
+    ['feature_storefront', false],
+    ['feature_accounting', false],
+    ['feature_api', false],
+    ['feature_purchase_orders', true],
+    ['feature_invoices', true],
+    ['business_types', ['retail', 'restaurant', 'salon', 'pharmacy', 'other']],
+    ['countries', [
+      { code: 'KE', name: 'Kenya', currency: 'KES', dialCode: '+254' },
+      { code: 'UG', name: 'Uganda', currency: 'UGX', dialCode: '+256' },
+      { code: 'TZ', name: 'Tanzania', currency: 'TZS', dialCode: '+255' },
+      { code: 'NG', name: 'Nigeria', currency: 'NGN', dialCode: '+234' },
+      { code: 'GH', name: 'Ghana', currency: 'GHS', dialCode: '+233' },
+      { code: 'ZA', name: 'South Africa', currency: 'ZAR', dialCode: '+27' },
+    ]],
+    ['currencies', ['KES', 'UGX', 'TZS', 'NGN', 'GHS', 'ZAR', 'USD']],
+    ['chat_greeting', 'Hi! Ask me anything about SmartPOS.'],
+    ['chat_disclaimer', 'I only know what SmartPOS can do. For anything else, email support@smartpos.co.ke.'],
+  ];
 
-  const existing = await AdminSettings.findById('global');
-
-  if (existing) {
-    console.log('Admin settings already exist.');
-    return;
+  let upserted = 0;
+  for (const [key, value] of settings) {
+    await PlatformSetting.updateOne({ key }, { $setOnInsert: { key, value } }, { upsert: true });
+    upserted++;
   }
+  ok(`Platform settings: ${upserted} upserted`);
+}
 
-  await AdminSettings.create({
-    _id: 'global',
-    currencies: { system: ['KES', 'USD', 'EUR', 'GBP'], store: ['KES', 'USD', 'EUR', 'GBP', 'TZS', 'UGX', 'NGN', 'GHS', 'RWF', 'BIF'], defaultSubscription: 'USD', defaultStore: 'KES' },
-    tax: { defaultRate: 16, label: 'VAT', inclusive: false },
-    branding: { platformName: 'SmartPOS', logoUrl: null, supportEmail: 'support@smartpos.com', supportPhone: '', termsUrl: '', privacyUrl: '' },
-    email: { fromName: 'SmartPOS', fromAddress: 'noreply@smartpos.com', replyTo: 'support@smartpos.com', templates: {} },
-    sms: { senderId: 'SmartPOS', enabled: true, dailyLimit: 1000, templates: {} },
-    backups: { enabled: true, destination: 'cloudinary', retentionDays: 30, schedule: '0 2 * * *', emailOnCompletion: false, emailRecipients: [] },
-    featureFlags: { apiAccess: true, loyalty: false, multiLocation: false, maintenanceMode: false },
-    security: { accessTokenMinutes: 15, refreshTokenDays: 7, minPasswordLength: 8, require2FAForAdmin: false },
-    sync: { intervalSeconds: 30, pullBatchSize: 200, maxOutboxRetries: 10 },
-    onboarding: { defaultPlan: 'trial', requireEmailVerification: false, requireAdminApproval: true, trialDays: 14, graceDays: 14 },
-    maintenanceMessage: 'SmartPOS is under maintenance. Please try again shortly.'
-  });
+/* ─────────────────────── LEGAL ─────────────────────── */
 
-  console.log('Admin settings created.');
-};
+async function seedLegals() {
+  const terms = `# Terms of Service
 
-const seedLegal = async () => {
-  console.log('\n=== SEED LEGAL ===\n');
+By using SmartPOS you agree to these terms.
+
+## 1. Account
+
+You are responsible for your account and any activity under it.
+
+## 2. Payments
+
+Subscription fees are billed as agreed at signup.
+
+## 3. Data
+
+You retain ownership of your business data. We store and process it to provide the service.
+
+## 4. Termination
+
+You may cancel at any time. We may suspend accounts that violate these terms.
+
+## 5. Contact
+
+For questions contact support@smartpos.co.ke.
+`;
+
+  const privacy = `# Privacy Policy
+
+We collect the minimum data needed to run SmartPOS.
+
+## What we collect
+
+- Business name, owner name, email, phone
+- Transaction data you enter
+- Usage logs
+
+## How we use it
+
+- To operate your account
+- To send transactional emails and SMS
+- To provide AI insights for your business
+
+## What we don't do
+
+- Sell your data
+- Share with third parties except service providers (email, SMS, storage, payments)
+
+## Contact
+
+support@smartpos.co.ke
+`;
+
+  const dpa = `# Data Processing Agreement
+
+This DPA governs processing of personal data under SmartPOS.
+
+## Roles
+
+SmartPOS is the data processor. You are the data controller.
+
+## Sub-processors
+
+- HDM Bridge (email)
+- Brevo (SMS)
+- Cloudinary (file storage)
+- HDM AI (insights)
+
+## Security
+
+Data is stored on encrypted infrastructure. Access is restricted to authorized personnel.
+
+## Contact
+
+support@smartpos.co.ke
+`;
+
+  const refund = `# Refund Policy
+
+Subscription fees are non-refundable once a billing period has started.
+
+If you were charged in error, contact support within 7 days.
+
+support@smartpos.co.ke
+`;
+
+  const aup = `# Acceptable Use Policy
+
+Do not use SmartPOS to:
+
+- Break any law
+- Process illegal goods or services
+- Send spam through email or SMS features
+- Attempt to access other tenants' data
+
+Violation may lead to suspension or termination.
+`;
 
   const docs = [
-    { type: 'terms', version: '1.0', title: 'Terms of Service', content: '# Terms of Service\n\nPlaceholder. Update from admin panel.', contentFormat: 'markdown', locale: 'en', effectiveFrom: new Date(), active: true, requiresAcceptance: true },
-    { type: 'privacy', version: '1.0', title: 'Privacy Policy', content: '# Privacy Policy\n\nPlaceholder. Update from admin panel.', contentFormat: 'markdown', locale: 'en', effectiveFrom: new Date(), active: true, requiresAcceptance: true }
+    { type: 'terms', title: 'Terms of Service', content: terms },
+    { type: 'privacy', title: 'Privacy Policy', content: privacy },
+    { type: 'dpa', title: 'Data Processing Agreement', content: dpa },
+    { type: 'refund', title: 'Refund Policy', content: refund },
+    { type: 'aup', title: 'Acceptable Use Policy', content: aup },
   ];
 
-  for (const doc of docs) {
-    const existing = await Legal.findOne({ type: doc.type, version: doc.version });
-    if (existing) {
-      console.log(`Exists: ${doc.type} v${doc.version}`);
-      continue;
-    }
-    await Legal.create(doc);
-    console.log(`Created: ${doc.type} v${doc.version}`);
+  let inserted = 0;
+  for (const d of docs) {
+    const existing = await Legal.findOne({ type: d.type }).lean();
+    if (existing) continue;
+
+    await Legal.create({
+      type: d.type,
+      version: 1,
+      title: d.title,
+      content: d.content,
+      effectiveAt: new Date(),
+      publishedAt: new Date(),
+      isCurrent: true,
+    });
+    inserted++;
   }
+  ok(`Legal docs: ${inserted} inserted`);
+}
 
-  console.log('\nLegal seeded.');
-};
+/* ─────────────────────── MENU ─────────────────────── */
 
-const seedSuperAdmin = async () => {
-  console.log('\n=== SEED SUPER ADMIN ===\n');
+async function menu() {
+  clear();
+  line();
+  line(`${C.bold}${C.cyan}╭─────────────────────────────────────╮${C.reset}`);
+  line(`${C.bold}${C.cyan}│   SmartPOS — Seed CLI                  │${C.reset}`);
+  line(`${C.bold}${C.cyan}╰─────────────────────────────────────╯${C.reset}`);
+  line();
+  line(`  ${C.bold}1${C.reset}.  Seed all`);
+  line(`  ${C.bold}2${C.reset}.  Seed platform settings`);
+  line(`  ${C.bold}3${C.reset}.  Seed plans`);
+  line(`  ${C.bold}4${C.reset}.  Seed payment methods`);
+  line(`  ${C.bold}5${C.reset}.  Seed legal docs`);
+  line();
+  line(`  ${C.dim}0.  Exit${C.reset}`);
+  line();
 
-  const email = 'admin@smartpos.com';
-  const existing = await AdminUser.findOne({ email });
+  return await ask(`${C.cyan}›${C.reset} Select option: `);
+}
 
-  if (existing) {
-    console.log(`Super admin exists: ${existing.email}`);
-    return;
+async function main() {
+  clear();
+  line(`${C.dim}Connecting to MongoDB...${C.reset}`);
+
+  try {
+    await connectDB();
+    ok('Connected');
+  } catch (e) {
+    err(`Connection failed: ${e.message}`);
+    process.exit(1);
   }
-
-  const passwordHash = await hashPassword('Admin@123');
-
-  const admin = await AdminUser.create({
-    name: 'SmartPOS Super Admin',
-    email,
-    passwordHash,
-    role: 'super_admin',
-    active: true
-  });
-
-  console.log(`Created super admin: ${admin.email}`);
-  console.log('Password: Admin@123');
-};
-
-const seedDemoClient = async () => {
-  console.log('\n=== SEED DEMO CLIENT ===\n');
-
-  const email = 'demo@smartpos.com';
-  const existing = await Client.findOne({ ownerEmail: email });
-
-  if (existing) {
-    console.log(`Demo client exists: ${existing.name}`);
-    return;
-  }
-
-  const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setDate(periodEnd.getDate() + 14);
-
-  const client = await Client.create({
-    name: 'Demo Store',
-    slug: 'demo-store',
-    ownerName: 'Demo Owner',
-    ownerEmail: email,
-    ownerPhone: '+254700000000',
-    country: 'Kenya',
-    subscriptionCurrency: 'USD',
-    storeCurrency: 'KES',
-    plan: 'trial',
-    status: 'trialing',
-    periodStart: now,
-    periodEnd,
-    autoRenew: false,
-    settings: { taxRate: 16, taxLabel: 'VAT', currency: 'KES', timezone: 'Africa/Nairobi' }
-  });
-
-  console.log(`Created demo client: ${client.name} (${client._id})`);
-};
-
-const seedAll = async () => {
-  await seedPlans();
-  await seedPaymentMethods();
-  await seedAdminSettings();
-  await seedLegal();
-  await seedSuperAdmin();
-  await seedDemoClient();
-};
-
-const showMenu = () => {
-  console.log('\n=== SmartPOS SEED CLI ===\n');
-  console.log('1. Seed All');
-  console.log('2. Seed Settings (Plans, Methods, Settings, Legal)');
-  console.log('3. Seed Super Admin');
-  console.log('4. Seed Demo Client');
-  console.log('0. Exit');
-};
-
-const main = async () => {
-  await connectDB();
 
   while (true) {
-    showMenu();
-    const choice = await question('\nSelect option: ');
+    const choice = await menu();
 
     try {
-      switch (choice) {
-        case '1': await seedAll(); break;
-        case '2':
-          await seedPlans();
-          await seedPaymentMethods();
-          await seedAdminSettings();
-          await seedLegal();
-          break;
-        case '3': await seedSuperAdmin(); break;
-        case '4': await seedDemoClient(); break;
-        case '0':
-          console.log('Exiting...');
-          await mongoose.disconnect();
-          rl.close();
-          return;
-        default:
-          console.log('Invalid option.');
-      }
-    } catch (err) {
-      console.error('Error:', err.message);
-    }
-  }
-};
+      heading('Seeding');
 
-main().catch(async (error) => {
-  console.error('Error:', error.message);
-  await mongoose.disconnect();
+      if (choice === '1') {
+        await seedPlans();
+        await seedPaymentMethods();
+        await seedSettings();
+        await seedLegals();
+        line();
+        ok('All seeds complete');
+      } else if (choice === '2') {
+        await seedSettings();
+      } else if (choice === '3') {
+        await seedPlans();
+      } else if (choice === '4') {
+        await seedPaymentMethods();
+      } else if (choice === '5') {
+        await seedLegals();
+      } else if (choice === '0') {
+        break;
+      } else {
+        continue;
+      }
+    } catch (e) {
+      err(e.message);
+    }
+
+    await ask(`${C.dim}Press Enter to continue...${C.reset}`);
+  }
+
   rl.close();
-});
+  await disconnectDB();
+  line();
+  ok('Bye');
+  process.exit(0);
+}
+
+main();

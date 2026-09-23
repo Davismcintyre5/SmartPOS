@@ -1,10 +1,8 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
+const c = require('../../controllers/public/legalController');
 
-const siteController = require('../../controllers/public/siteController');
+const router = Router();
 
-router.get('/', siteController.getLegal);
-router.get('/:type', siteController.getLegalByType);
-router.get('/:type/versions', siteController.getLegalVersions);
+router.get('/:type', c.getCurrent);
 
 module.exports = router;

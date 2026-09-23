@@ -1,35 +1,22 @@
 const mongoose = require('mongoose');
-const env = require('./env');
-
-let isConnected = false;
+const { env } = require('./env');
+const { logger } = require('../utils/logger');
 
 async function connectDB() {
-  if (isConnected) return;
+  mongoose.connection.on('connected', () => logger.info('mongodb connected'));
+  mongoose.connection.on('error', (e) => logger.error({ err: e.message }, 'mongodb error'));
+  mongoose.connection.on('disconnected', () => logger.warn('mongodb disconnected'));
 
-  mongoose.set('strictQuery', true);
-
-  await mongoose.connect(env.MONGODB_URI, {
-    maxPoolSize: 10,
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 45000
+  await mongoose.connect(env.mongodbUri, {
+    maxPoolSize: 20,
+    serverSelectionTimeoutMS: 5000,
   });
 
-  isConnected = true;
-
-  mongoose.connection.on('error', (err) => {
-    console.error('MongoDB error:', err.message);
-  });
-
-  mongoose.connection.on('disconnected', () => {
-    isConnected = false;
-    console.warn('MongoDB disconnected');
-  });
+  return mongoose.connection;
 }
 
 async function disconnectDB() {
-  if (!isConnected) return;
-  await mongoose.connection.close();
-  isConnected = false;
+  await mongoose.disconnect();
 }
 
-module.exports = { connectDB, disconnectDB };
+module.exports = { connectDB, disconnectDB, mongoose };

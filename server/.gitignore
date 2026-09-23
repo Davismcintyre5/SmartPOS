@@ -1,121 +1,55 @@
-# ══════════════════════════════════════════════════════════
-#  SmartPOS — Root .gitignore
-#  Owner: Davis Okoth · Company: HDM
-# ══════════════════════════════════════════════════════════
-
-# ── Dependencies ──────────────────────────────────────────
+# Dependencies
 node_modules/
-jspm_packages/
-bower_components/
-package-lock.json
-yarn.lock
+.pnp
+.pnp.js
 
-# ── Environment ───────────────────────────────────────────
+# Env files (all apps)
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
 .env.*.local
 !.env.example
-!.env.sample
 
-# ── Logs ──────────────────────────────────────────────────
+# Build outputs
+dist/
+build/
+out/
+.next/
+.turbo/
+
+# Logs
 logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
-pino-*.log
 
-# ── Build output ──────────────────────────────────────────
-dist/
-build/
-out/
-.next/
-.nuxt/
-.output/
-.vercel/
-.netlify/
-
-# ── Caches ────────────────────────────────────────────────
+# Caches
 .cache/
 .parcel-cache/
-.turbo/
+.vite/
 .eslintcache
 .stylelintcache
-.node_repl_history
-.npm
-.yarn/cache
-.yarn/unplugged
-.pnp.*
-.pnp.js
+tsconfig.tsbuildinfo
 
-# ── Test / coverage ───────────────────────────────────────
-coverage/
-.nyc_output/
-*.lcov
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# ── Database / backups ────────────────────────────────────
-backups/
-*.sqlite
-*.sqlite3
-*.db
-dump/
-mongodump/
-
-# ── Uploads / temp ────────────────────────────────────────
-uploads/
-tmp/
-temp/
-*.tmp
-
-# ── Editor / IDE ──────────────────────────────────────────
+# Editor
 .vscode/*
-!.vscode/settings.json
 !.vscode/extensions.json
-!.vscode/launch.json
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
 *~
-.project
-.classpath
-.settings/
 
-# ── OS files ──────────────────────────────────────────────
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-Thumbs.db
-ehthumbs.db
-desktop.ini
+# Coverage
+coverage/
+.nyc_output/
 
-# ── Electron ──────────────────────────────────────────────
-dist_electron/
-release/
-*.dmg
-*.AppImage
-*.snap
-*.exe
-*.msi
-*.deb
-*.rpm
-
-# ── Docker ────────────────────────────────────────────────
-docker-compose.override.yml
-
-# ── Misc ──────────────────────────────────────────────────
-.eslintcache
-*.pid
-*.seed
-*.pid.lock
-lib-cov/
-.grunt/
-.lock-wscript/
-.node_repl_history
-npm-debug.log*
+# Misc
+.tmp/
+temp/

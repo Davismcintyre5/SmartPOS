@@ -1,47 +1,66 @@
-function trialReminder1(d) {
-  return `${d.platformName}: Your trial ends tomorrow. Upgrade: ${d.upgradeUrl}`;
-}
+const PREFIX = 'SmartPOS:';
 
-function paymentFailed(d) {
-  return `${d.platformName}: Payment failed. Update card: ${d.portalUrl}`;
-}
+const otp = ({ code, minutes = 10 }) =>
+  `${PREFIX} Your verification code is ${code}. Expires in ${minutes} min. Do not share.`;
 
-function suspended(d) {
-  return `${d.platformName}: Account suspended. Renew: ${d.renewUrl}`;
-}
+const approval = ({ businessName, shortUrl }) =>
+  `${PREFIX} ${businessName} is approved. Log in: ${shortUrl}`;
 
-function accountSuspended(d) {
-  return `${d.platformName}: Your account has been suspended. Contact support.`;
-}
+const rejection = ({ businessName }) =>
+  `${PREFIX} Registration for ${businessName} was not approved. Check email for details.`;
 
-function restored(d) {
-  return `${d.platformName}: Payment received. Account active again.`;
-}
+const lowStockAlert = ({ productName, qty }) =>
+  `${PREFIX} ${productName} is low (${qty} left). Reorder soon.`;
 
-function renewalReceived(d) {
-  return `${d.platformName}: Renewal received. Plan active until ${d.periodEnd}.`;
-}
+const outOfStock = ({ productName }) =>
+  `${PREFIX} ${productName} is out of stock. Restock soon.`;
 
-function twoFactor(d) {
-  return `${d.platformName}: Your code is ${d.code}. Expires in 5 min.`;
-}
+const dailySummary = ({ date, sales, total, currency, topProduct }) =>
+  `${PREFIX} ${date}: ${sales} sales, ${currency}${total}.${topProduct ? ` Top: ${topProduct}.` : ''}`;
 
-function receipt(d) {
-  return `${d.storeName}: Receipt ${d.total}. Ref ${d.reference}. Thanks!`;
-}
+const subscriptionPaid = ({ planName, amount, currency }) =>
+  `${PREFIX} Payment received. ${planName} · ${currency}${amount}. Thank you.`;
 
-function backupFailed(d) {
-  return `${d.platformName}: Backup failed. Check admin panel.`;
-}
+const subscriptionExpiring = ({ planName, daysLeft }) =>
+  `${PREFIX} ${planName} expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}. Renew to avoid interruption.`;
+
+const subscriptionExpired = ({ planName }) =>
+  `${PREFIX} ${planName} has expired. Renew to restore access.`;
+
+const subscriptionFailed = ({ planName, currency, amount }) =>
+  `${PREFIX} Payment failed for ${planName} (${currency}${amount}). Update payment to avoid interruption.`;
+
+const adminServiceDown = ({ service }) =>
+  `${PREFIX} ALERT: ${service} is down. Check admin panel.`;
+
+const invoice = ({ businessName, invoiceNumber, total, currency, dueDate, shortUrl }) =>
+  `${PREFIX} Invoice ${invoiceNumber} from ${businessName}: ${currency}${total}. Due ${dueDate}. View: ${shortUrl}`;
+
+const invoiceReminder = ({ invoiceNumber, total, currency, shortUrl }) =>
+  `${PREFIX} Reminder: Invoice ${invoiceNumber} (${currency}${total}) is unpaid. Pay: ${shortUrl}`;
+
+const invoiceOverdue = ({ invoiceNumber, total, currency, daysOverdue, shortUrl }) =>
+  `${PREFIX} Invoice ${invoiceNumber} is ${daysOverdue} days overdue (${currency}${total}). Pay now: ${shortUrl}`;
+
+const paymentReceived = ({ invoiceNumber, amount, currency, shortUrl }) =>
+  `${PREFIX} Payment received for ${invoiceNumber} (${currency}${amount}). Thank you.${shortUrl ? ` ${shortUrl}` : ''}`;
 
 module.exports = {
-  trialReminder1,
-  paymentFailed,
-  suspended,
-  accountSuspended,
-  restored,
-  renewalReceived,
-  twoFactor,
-  receipt,
-  backupFailed
+  smsTemplates: {
+    otp,
+    approval,
+    rejection,
+    lowStockAlert,
+    outOfStock,
+    dailySummary,
+    subscriptionPaid,
+    subscriptionExpiring,
+    subscriptionExpired,
+    subscriptionFailed,
+    adminServiceDown,
+    invoice,
+    invoiceReminder,
+    invoiceOverdue,
+    paymentReceived,
+  },
 };

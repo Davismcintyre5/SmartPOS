@@ -1,291 +1,125 @@
-const stripe = require('../../config/stripe');
-const env = require('../../config/env');
-const Payment = require('../../models/admin/Payment');
-const Client = require('../../models/admin/Client');
-const Subscription = require('../../models/admin/Subscription');
-const PendingRegistration = require('../../models/admin/PendingRegistration');
-const AdminUser = require('../../models/admin/AdminUser');
-const emailService = require('../../services/emailService');
-const notificationService = require('../../services/notificationService');
+const { asyncHandler } = require('../../utils/asyncHandler');
+const { logger } = require('../../utils/logger');
 const mpesaService = require('../../services/mpesaService');
-const signupController = require('./signupController');
-const logger = require('../../utils/logger');
-const asyncHandler = require('../../utils/asyncHandler');
-const { addDays, now } = require('../../utils/date');
+const emailService = require('../../services/emailService');
+const Payment = require('../../models/client/Payment');
+const Sale = require('../../models/client/Sale');
+const Invoice = require('../../models/client/Invoice');
+const Tenant = require('../../models/admin/Tenant');
+const User = require('../../models/client/User');
 
-// ── Shared: activate a client after successful renewal ──
-
-async function activateRenewal(client, payment) {
-  const cycleDays = client.plan === 'pro' ? 365 : 30;
-
-  client.status = client.plan === 'ent' ? 'perpetual' : 'active';
-  client.periodStart = now();
-  client.periodEnd = addDays(now(), cycleDays);
-  client.autoRenew = true;
-  await client.save();
-
-  await Subscription.create({
-    tenantId: client._id,
-    plan: client.plan,
-    cycle: client.plan === 'pro' ? 'yearly' : 'monthly',
-    currency: client.subscriptionCurrency,
-    amountMinor: payment.amountMinor || 0,
-    status: 'active',
-    periodStart: client.periodStart,
-    periodEnd: client.periodEnd
-  });
-
-  await emailService.sendRenewalReceived(client, payment).catch(() => {});
-}
-
-// ── Stripe webhook ──────────────────────────────────────
-
-const stripeWebhook = asyncHandler(async (req, res) => {
-  const signature = req.headers['stripe-signature'];
-
-  let event;
+async function notifyInvoicePaid(invoice, method, reference) {
   try {
-    event = stripe.webhooks.constructEvent(req.body, signature, env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    logger.error({ err }, 'Stripe webhook signature failed');
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
+    const tenant = await Tenant.findById(invoice.tenantId).lean();
+    const owner = await User.findOne({ tenantId: invoice.tenantId, role: 'owner' })
+      .select('email fullName')
+      .lean();
 
-  try {
-    switch (event.type) {
-      // ── New signup OR renewal via Checkout ──
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        const registrationId = session.metadata?.registrationId;
-        const tenantId = session.metadata?.tenantId;
-        const purpose = session.metadata?.purpose;
+    if (!owner?.email) return;
 
-        // Renewal flow
-        if (purpose === 'renewal' && tenantId) {
-          const client = await Client.findById(tenantId);
-          if (!client) {
-            logger.warn({ tenantId }, 'Renewal webhook: client not found');
-            break;
-          }
-
-          const payment = await Payment.create({
-            tenantId: client._id,
-            amountMinor: session.amount_total || 0,
-            currency: (session.currency || 'kes').toUpperCase(),
-            method: 'stripe',
-            status: 'succeeded',
-            reference: session.id,
-            purpose: 'renewal',
-            metadata: { customerId: session.customer }
-          });
-
-          client.stripeCustomerId = session.customer;
-          if (session.subscription) client.stripeSubscriptionId = session.subscription;
-
-          await activateRenewal(client, payment);
-          break;
-        }
-
-        // Signup flow (unchanged)
-        if (registrationId) {
-          const registration = await PendingRegistration.findById(registrationId);
-          if (!registration || registration.status !== 'pending') break;
-
-          const payment = await Payment.create({
-            tenantId: null,
-            amountMinor: session.amount_total || 0,
-            currency: (session.currency || 'usd').toUpperCase(),
-            method: 'stripe',
-            status: 'succeeded',
-            reference: session.id,
-            purpose: 'signup',
-            metadata: { registrationId, customerId: session.customer }
-          });
-
-          const client = await signupController.createClientAfterPayment(registration, payment);
-
-          payment.tenantId = client._id;
-          await payment.save();
-
-          client.stripeCustomerId = session.customer;
-          client.stripeSubscriptionId = session.subscription;
-          await client.save();
-
-          registration.status = 'paid';
-          await registration.save();
-
-          await emailService.sendPaymentReceived(client, payment).catch(() => {});
-
-          const admins = await AdminUser.find({
-            role: { $in: ['super_admin', 'admin'] },
-            active: true
-          }).select('email').lean();
-
-          const adminEmails = admins.map((a) => a.email);
-          if (adminEmails.length) {
-            await emailService.sendAdminNewSignup(client, payment, adminEmails).catch(() => {});
-          }
-
-          await notificationService.notifyAdmins('new_paid_signup', {
-            title: 'New paid signup pending approval',
-            message: `${client.name} — ${client.plan}`,
-            link: `/clients/${client._id}`
-          }).catch(() => {});
-        }
-        break;
-      }
-
-      // ── Recurring auto-renewal success ──
-      case 'invoice.paid': {
-        const invoice = event.data.object;
-        const client = await Client.findOne({ stripeCustomerId: invoice.customer });
-        if (!client) break;
-
-        const payment = await Payment.create({
-          tenantId: client._id,
-          amountMinor: invoice.amount_paid || 0,
-          currency: (invoice.currency || 'usd').toUpperCase(),
-          method: 'stripe',
-          status: 'succeeded',
-          reference: invoice.id,
-          purpose: 'renewal'
-        });
-
-        await activateRenewal(client, payment);
-        break;
-      }
-
-      // ── Recurring auto-renewal failure ──
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object;
-        const client = await Client.findOne({ stripeCustomerId: invoice.customer });
-        if (!client) break;
-
-        client.status = 'renewal';
-        await client.save();
-
-        await Payment.create({
-          tenantId: client._id,
-          amountMinor: invoice.amount_due || 0,
-          currency: (invoice.currency || 'usd').toUpperCase(),
-          method: 'stripe',
-          status: 'failed',
-          reference: invoice.id,
-          purpose: 'renewal'
-        });
-
-        await emailService.sendPaymentFailed(client).catch(() => {});
-        break;
-      }
-
-      default:
-        logger.info({ type: event.type }, 'Stripe event unhandled');
-    }
-  } catch (err) {
-    logger.error({ err, type: event.type }, 'Stripe webhook handler failed');
-  }
-
-  res.json({ received: true });
-});
-
-// ── PayPal webhook (stub) ───────────────────────────────
-
-const paypalWebhook = asyncHandler(async (req, res) => {
-  logger.info({ body: req.body }, 'PayPal webhook received');
-  res.json({ received: true });
-});
-
-// ── M-Pesa STK callback ─────────────────────────────────
-
-const mpesaStkCallback = asyncHandler(async (req, res) => {
-  const parsed = mpesaService.parseStkCallback(req.body);
-  if (!parsed) return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
-
-  try {
-    const payment = await Payment.findOne({
-      'metadata.checkoutRequestId': parsed.checkoutRequestId
+    await emailService.sendPaymentReceivedEmail(owner.email, {
+      businessName: tenant?.name || 'SmartPOS',
+      customerName: owner.fullName,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: invoice.amountPaid,
+      currency: invoice.currency,
+      paidAt: invoice.paidAt?.toISOString() || new Date().toISOString(),
+      paymentMethod: method,
+      paymentReference: reference || null,
+      notes: null,
     });
 
-    if (!payment) {
-      logger.warn({ parsed }, 'STK callback for unknown payment');
-      return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
-    }
-
-    if (!parsed.success) {
-      payment.status = 'failed';
-      payment.metadata = { ...payment.metadata, resultDesc: parsed.resultDesc };
-      await payment.save();
-      return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
-    }
-
-    payment.status = 'succeeded';
-    payment.reference = parsed.mpesaReceiptNumber;
-    payment.mpesaCode = parsed.mpesaReceiptNumber;
-    await payment.save();
-
-    // Renewal flow
-    if (payment.purpose === 'renewal' && payment.tenantId) {
-      const client = await Client.findById(payment.tenantId);
-      if (client) {
-        await activateRenewal(client, payment);
-      }
-      return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
-    }
-
-    // Signup flow
-    const registrationId = payment.metadata?.registrationId;
-    if (!registrationId) {
-      return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
-    }
-
-    const registration = await PendingRegistration.findById(registrationId);
-    if (!registration || registration.status !== 'pending') {
-      return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
-    }
-
-    const client = await signupController.createClientAfterPayment(registration, payment);
-
-    payment.tenantId = client._id;
-    await payment.save();
-
-    registration.status = 'paid';
-    await registration.save();
-
-    await emailService.sendPaymentReceived(client, payment).catch(() => {});
-
-    const admins = await AdminUser.find({
-      role: { $in: ['super_admin', 'admin'] },
-      active: true
-    }).select('email').lean();
-
-    const adminEmails = admins.map((a) => a.email);
-    if (adminEmails.length) {
-      await emailService.sendAdminNewSignup(client, payment, adminEmails).catch(() => {});
-    }
-
-    await notificationService.notifyAdmins('new_paid_signup', {
-      title: 'New paid signup pending approval',
-      message: `${client.name} — ${client.plan}`,
-      link: `/clients/${client._id}`
-    }).catch(() => {});
+    logger.info(
+      { invoiceNumber: invoice.invoiceNumber, method, reference },
+      'paymentReceived email sent (callback)'
+    );
   } catch (err) {
-    logger.error({ err }, 'M-Pesa STK callback failed');
+    logger.error({ err: err.message, invoiceNumber: invoice.invoiceNumber }, 'paymentReceived email failed');
+  }
+}
+
+const mpesaCallback = asyncHandler(async (req, res) => {
+  const payload = req.body;
+  const parsed = mpesaService.parseCallback(payload);
+
+  if (parsed.checkoutRequestId) {
+    const payment = await Payment.findOne({ providerRef: parsed.checkoutRequestId });
+    if (payment) {
+      payment.status = parsed.success ? 'success' : 'failed';
+      payment.providerPayload = payload;
+      if (parsed.success && parsed.mpesaReceiptNumber) {
+        payment.providerRef = parsed.mpesaReceiptNumber;
+      }
+      await payment.save();
+
+      if (parsed.success && payment.saleId) {
+        await Sale.updateOne({ _id: payment.saleId }, { $set: { paymentStatus: 'paid' } });
+      }
+    }
+
+    const invoice = await Invoice.findOne({
+      'stkLastRequest.checkoutRequestId': parsed.checkoutRequestId,
+    });
+
+    if (invoice && parsed.success) {
+      const paidAt = new Date();
+
+      invoice.status = 'paid';
+      invoice.amountPaid = invoice.amountDue;
+      invoice.amountDue = 0;
+      invoice.paidAt = paidAt;
+      invoice.paymentMethod = 'mpesa_stk';
+      invoice.paymentRef = parsed.mpesaReceiptNumber || null;
+      await invoice.save();
+
+      logger.info(
+        {
+          invoiceNumber: invoice.invoiceNumber,
+          receipt: parsed.mpesaReceiptNumber,
+          amount: parsed.amount,
+        },
+        'invoice paid via STK callback'
+      );
+
+      notifyInvoicePaid(invoice, 'mpesa_stk', parsed.mpesaReceiptNumber).catch(() => {});
+    } else if (invoice && !parsed.success) {
+      logger.warn(
+        {
+          invoiceNumber: invoice.invoiceNumber,
+          resultDesc: parsed.resultDesc,
+        },
+        'STK payment failed'
+      );
+    }
   }
 
-  res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+  return res.status(200).json({ ResultCode: 0, ResultDesc: 'Accepted' });
 });
 
-// ── M-Pesa C2B callback ─────────────────────────────────
+const mpesaTimeout = asyncHandler(async (req, res) => {
+  logger.warn({ body: req.body }, 'mpesa timeout');
+  return res.status(200).json({ ResultCode: 0, ResultDesc: 'Accepted' });
+});
 
-const mpesaC2bCallback = asyncHandler(async (req, res) => {
-  const parsed = mpesaService.parseC2bCallback(req.body);
-  logger.info({ parsed }, 'M-Pesa C2B callback received');
-  res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+const stripeWebhook = asyncHandler(async (req, res) => {
+  logger.info('stripe webhook received');
+  return res.status(200).json({ received: true });
+});
+
+const paystackWebhook = asyncHandler(async (req, res) => {
+  logger.info('paystack webhook received');
+  return res.status(200).json({ received: true });
+});
+
+const flutterwaveWebhook = asyncHandler(async (req, res) => {
+  logger.info('flutterwave webhook received');
+  return res.status(200).json({ received: true });
 });
 
 module.exports = {
+  mpesaCallback,
+  mpesaTimeout,
   stripeWebhook,
-  paypalWebhook,
-  mpesaStkCallback,
-  mpesaC2bCallback
+  paystackWebhook,
+  flutterwaveWebhook,
 };

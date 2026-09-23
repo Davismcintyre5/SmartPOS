@@ -1,49 +1,22 @@
 const axios = require('axios');
-const env = require('./env');
-const { getCache } = require('./redis');
+const { env } = require('./env');
 
-const hdmClient = axios.create({
-  baseURL: env.HDM_API_URL,
+const hdmBridge = axios.create({
+  baseURL: env.mail.apiUrl,
   timeout: 15000,
   headers: {
-    'Authorization': `Bearer ${env.HDM_API_KEY}`,
-    'Content-Type': 'application/json'
-  }
+    Authorization: `Bearer ${env.mail.apiKey}`,
+    'Content-Type': 'application/json',
+  },
 });
 
-async function getEmailIdentity() {
-  try {
-    const settings = await getCache('admin:settings');
-    return {
-      from: settings?.email?.fromAddress || env.HDM_FROM_EMAIL,
-      fromName: settings?.email?.fromName || env.HDM_FROM_NAME,
-      replyTo: settings?.email?.replyTo || env.HDM_FROM_EMAIL
-    };
-  } catch {
-    return {
-      from: env.HDM_FROM_EMAIL,
-      fromName: env.HDM_FROM_NAME,
-      replyTo: env.HDM_FROM_EMAIL
-    };
-  }
-}
+const HDM_BRIDGE_ENDPOINTS = Object.freeze({
+  SEND_EMAIL: '/emails/send',
+});
 
-async function sendEmail({ to, subject, htmlBody, textBody }) {
-  const identity = await getEmailIdentity();
+const mailFrom = Object.freeze({
+  email: env.mail.fromEmail,
+  name: env.mail.fromName,
+});
 
-  const payload = {
-    from: identity.from,
-    fromName: identity.fromName,
-    to,
-    subject,
-    htmlBody,
-    textBody
-  };
-
-  if (identity.replyTo) payload.replyTo = identity.replyTo;
-
-  const { data } = await hdmClient.post('/emails/send', payload);
-  return data;
-}
-
-module.exports = { sendEmail, hdmClient };
+module.exports = { hdmBridge, HDM_BRIDGE_ENDPOINTS, mailFrom };

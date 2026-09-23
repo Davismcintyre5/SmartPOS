@@ -1,11 +1,12 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
+const c = require('../../controllers/public/webhookController');
 
-const webhookController = require('../../controllers/public/webhookController');
+const router = Router();
 
-router.post('/stripe', express.raw({ type: 'application/json' }), webhookController.stripeWebhook);
-router.post('/paypal', express.json(), webhookController.paypalWebhook);
-router.post('/mpesa/stk', express.json(), webhookController.mpesaStkCallback);
-router.post('/mpesa/c2b', express.json(), webhookController.mpesaC2bCallback);
+router.post('/mpesa/callback', c.mpesaCallback);
+router.post('/mpesa/timeout', c.mpesaTimeout);
+router.post('/stripe', c.stripeWebhook);
+router.post('/paystack', c.paystackWebhook);
+router.post('/flutterwave', c.flutterwaveWebhook);
 
 module.exports = router;

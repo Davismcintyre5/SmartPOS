@@ -1,16 +1,14 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
+const c = require('../../controllers/client/inventoryController');
+const { roles } = require('../../middleware/client/roles');
+const { requireActive } = require('../../middleware/client/statusGuard');
 
-const inventoryController = require('../../controllers/client/inventoryController');
-const auth = require('../../middleware/client/auth');
-const period = require('../../middleware/client/period');
-const requireRole = require('../../middleware/client/role');
+const router = Router();
 
-router.use(auth, period);
+router.use(requireActive);
 
-router.get('/stock/:productId', inventoryController.getStock);
-router.post('/adjust', requireRole(['owner', 'manager']), inventoryController.adjust);
-router.get('/movements', inventoryController.listMovements);
-router.get('/low-stock', inventoryController.lowStock);
+router.get('/', c.list);
+router.post('/adjust', roles('owner', 'manager'), c.adjust);
+router.get('/:productId/history', c.history);
 
 module.exports = router;

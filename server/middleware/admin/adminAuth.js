@@ -1,32 +1,25 @@
 const { verifyAccessToken } = require('../../utils/jwt');
-const ApiError = require('../../utils/ApiError');
+const { ApiError } = require('../../utils/apiError');
 
-function adminAuth(req, res, next) {
-  try {
-    const header = req.headers.authorization;
-    if (!header || !header.startsWith('Bearer ')) {
-      throw ApiError.unauthorized('No token provided');
-    }
+function adminAuth(req, _res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
 
-    const token = header.slice(7);
-    const payload = verifyAccessToken(token);
+  if (!token) throw ApiError.unauthorized('NO_TOKEN', 'Missing access token');
 
-    if (payload.type !== 'admin') {
-      throw ApiError.forbidden('Not an admin token');
-    }
+  const payload = verifyAccessToken(token);
 
-    req.admin = {
-      adminId: payload.adminId,
-      role: payload.role,
-      email: payload.email
-    };
-
-    next();
-  } catch (err) {
-    if (err.name === 'JsonWebTokenError') return next(ApiError.unauthorized('Invalid token'));
-    if (err.name === 'TokenExpiredError') return next(ApiError.unauthorized('Token expired'));
-    next(err);
+  if (payload.scope !== 'platform' || payload.role !== 'super_admin') {
+    throw ApiError.forbidden('NOT_ADMIN', 'Platform access required');
   }
+
+  req.admin = {
+    id: payload.sub,
+    role: payload.role,
+    scope: payload.scope,
+  };
+
+  next();
 }
 
-module.exports = adminAuth;
+module.exports = { adminAuth };

@@ -1,15 +1,13 @@
-const express = require('express');
+const { Router } = require('express');
 
 const publicRoutes = require('./public');
-const clientRoutes = require('./client');
-const externalRoutes = require('./external');
 const adminRoutes = require('./admin');
+const clientRoutes = require('./client');
 
-const router = express.Router();
+const router = Router();
 
-router.use('/', publicRoutes);
-router.use('/', clientRoutes);
-router.use('/external', externalRoutes);
+router.use('/public', publicRoutes);
 router.use('/admin', adminRoutes);
+router.use('/client', clientRoutes);
 
 module.exports = router;

@@ -1,18 +1,33 @@
 const mongoose = require('mongoose');
-const { LEGAL_TYPES } = require('../../utils/constants');
 
-const legalSchema = new mongoose.Schema({
-  type: { type: String, enum: LEGAL_TYPES, required: true, index: true },
-  version: { type: String, required: true },
-  title: { type: String, required: true },
-  content: { type: String, required: true },
-  contentFormat: { type: String, enum: ['markdown', 'html'], default: 'markdown' },
-  locale: { type: String, default: 'en' },
-  effectiveFrom: { type: Date, default: Date.now },
-  active: { type: Boolean, default: false },
-  requiresAcceptance: { type: Boolean, default: true }
-}, { timestamps: true });
+const TYPES = ['terms', 'privacy', 'dpa', 'refund', 'aup'];
 
-legalSchema.index({ type: 1, active: 1 });
+const schema = new mongoose.Schema(
+  {
+    type: { type: String, enum: TYPES, required: true },
+    version: { type: Number, required: true },
+    title: { type: String, required: true },
+    content: { type: String, required: true },
+    contentHash: String,
+    locale: { type: String, default: 'en' },
+    effectiveAt: Date,
+    publishedAt: Date,
+    publishedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'SuperAdmin' },
+    isCurrent: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model('Legal', legalSchema);
+schema.index({ type: 1, version: 1 }, { unique: true });
+schema.index({ type: 1, isCurrent: 1 });
+schema.index({ effectiveAt: -1 });
+
+schema.set('toJSON', {
+  virtuals: true,
+  transform: (_doc, ret) => {
+    delete ret.__v;
+    return ret;
+  },
+});
+
+module.exports = mongoose.model('Legal', schema);

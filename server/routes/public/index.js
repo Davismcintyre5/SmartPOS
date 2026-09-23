@@ -1,20 +1,21 @@
-const express = require('express');
-const router = express.Router();
+const { Router } = require('express');
 
-const siteSettingsRoutes = require('./siteSettingsRoutes');
-const legalRoutes = require('./legalRoutes');
 const authRoutes = require('./authRoutes');
-const signupRoutes = require('./signupRoutes');
+const siteRoutes = require('./siteRoutes');
+const legalRoutes = require('./legalRoutes');
+const chatRoutes = require('./chatRoutes');
 const webhookRoutes = require('./webhookRoutes');
-const healthRoutes = require('./healthRoutes');
-const aiRoutes = require('./aiRoutes');
+const paymentRoutes = require('./paymentRoutes');
+const invoiceRoutes = require('./invoiceRoutes');
 
-router.use('/site', siteSettingsRoutes);
-router.use('/legal', legalRoutes);
+const router = Router();
+
 router.use('/auth', authRoutes);
-router.use('/signup', signupRoutes);
+router.use('/site', siteRoutes);
+router.use('/legal', legalRoutes);
+router.use('/chat', chatRoutes);
 router.use('/webhooks', webhookRoutes);
-router.use('/health', healthRoutes);
-router.use('/ai', aiRoutes);
+router.use('/payments', paymentRoutes);
+router.use('/invoices', invoiceRoutes);
 
 module.exports = router;
