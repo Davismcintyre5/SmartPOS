@@ -56,6 +56,8 @@ contextBridge.exposeInMainWorld('electron', {
     getProducts: () => ipcRenderer.invoke('db:getProducts'),
     getCustomers: () => ipcRenderer.invoke('db:getCustomers'),
     getSettings: () => ipcRenderer.invoke('db:getSettings'),
+    getRecentSales: (limit = 100) =>
+      ipcRenderer.invoke('db:getRecentSales', limit),
     refreshCatalog: () => ipcRenderer.invoke('db:refreshCatalog'),
   },
 

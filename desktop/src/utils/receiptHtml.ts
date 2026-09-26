@@ -203,7 +203,21 @@ export function printReceiptHtml(
   title = 'Receipt'
 ): void {
   const win = window.open('', '', 'width=320,height=680');
-  if (!win) return;
+
+  if (!win) {
+    printViaIframe(
+      contentHtml,
+      title,
+      `* { box-sizing: border-box; }
+       body { font-family: 'Courier New', ui-monospace, monospace; font-size: 12px; margin: 8px; color: #000; background: #fff; }
+       .row { display: flex; justify-content: space-between; }
+       .center { text-align: center; }
+       .bold { font-weight: 700; }
+       hr { border: none; border-top: 1px dashed #999; margin: 6px 0; }
+       @page { size: 80mm auto; margin: 4mm; }`
+    );
+    return;
+  }
 
   win.document.write(`
     <html>
@@ -229,7 +243,56 @@ export function printReceiptHtml(
     </html>
   `);
   win.document.close();
+  win.focus();
   setTimeout(() => win.print(), 300);
+}
+
+function printViaIframe(
+  contentHtml: string,
+  title: string,
+  styles: string
+): void {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument;
+  if (!doc) {
+    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+    return;
+  }
+
+  doc.open();
+  doc.write(`
+    <html>
+      <head>
+        <title>${escapeHtml(title)}</title>
+        <style>${styles}</style>
+      </head>
+      <body>${contentHtml}</body>
+    </html>
+  `);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch {
+      // ignore
+    }
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 60000);
+  }, 300);
 }
 
 function escapeHtml(s: string): string {

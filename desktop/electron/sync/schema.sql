@@ -100,6 +100,32 @@ CREATE TABLE IF NOT EXISTS sales_local (
 CREATE INDEX IF NOT EXISTS idx_sales_local_status
   ON sales_local(status, created_at);
 
+CREATE TABLE IF NOT EXISTS sales_cache (
+  id TEXT PRIMARY KEY,
+  sale_number TEXT NOT NULL,
+  total INTEGER NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'KES',
+  payment_method TEXT,
+  customer_name TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sales_cache_created
+  ON sales_cache(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS sales_cache_items (
+  sale_id TEXT NOT NULL,
+  product_id TEXT,
+  name TEXT NOT NULL,
+  qty INTEGER NOT NULL DEFAULT 0,
+  price INTEGER NOT NULL DEFAULT 0,
+  subtotal INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (sale_id, name, qty, price)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sales_cache_items_sale
+  ON sales_cache_items(sale_id);
+
 CREATE TABLE IF NOT EXISTS local_meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

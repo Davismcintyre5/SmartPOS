@@ -97,6 +97,32 @@ const stmtDeleteCategory = () => prepare('DELETE FROM categories WHERE id = ?');
 const stmtDeleteCustomer = () => prepare('DELETE FROM customers WHERE id = ?');
 const stmtDeleteStaff = () => prepare('DELETE FROM staff WHERE id = ?');
 
+const stmtUpsertSale = () =>
+  prepare(`
+    INSERT INTO sales_cache
+      (id, sale_number, total, currency, payment_method, customer_name, created_at)
+    VALUES
+      (@id, @sale_number, @total, @currency, @payment_method, @customer_name, @created_at)
+    ON CONFLICT(id) DO UPDATE SET
+      sale_number = excluded.sale_number,
+      total = excluded.total,
+      currency = excluded.currency,
+      payment_method = excluded.payment_method,
+      customer_name = excluded.customer_name,
+      created_at = excluded.created_at
+  `);
+
+const stmtDeleteSaleItems = () =>
+  prepare('DELETE FROM sales_cache_items WHERE sale_id = ?');
+
+const stmtInsertSaleItem = () =>
+  prepare(`
+    INSERT OR REPLACE INTO sales_cache_items
+      (sale_id, product_id, name, qty, price, subtotal)
+    VALUES
+      (@sale_id, @product_id, @name, @qty, @price, @subtotal)
+  `);
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -205,6 +231,38 @@ const applyStock = transaction((branchStock) => {
   }
 });
 
+const applySales = transaction((sales) => {
+  const saleStmt = stmtUpsertSale();
+  const deleteItems = stmtDeleteSaleItems();
+  const insertItem = stmtInsertSaleItem();
+
+  for (const s of sales || []) {
+    const saleId = String(s._id);
+    saleStmt.run({
+      id: saleId,
+      sale_number: s.saleNumber || '',
+      total: Math.round(Number(s.total) || 0),
+      currency: s.currency || 'KES',
+      payment_method: s.paymentMethod || null,
+      customer_name: s.customerName || null,
+      created_at: s.createdAt || nowIso(),
+    });
+
+    deleteItems.run(saleId);
+
+    for (const item of s.items || []) {
+      insertItem.run({
+        sale_id: saleId,
+        product_id: item.productId ? String(item.productId) : null,
+        name: item.name || '',
+        qty: Math.round(Number(item.qty) || 0),
+        price: Math.round(Number(item.price) || 0),
+        subtotal: Math.round(Number(item.subtotal) || 0),
+      });
+    }
+  }
+});
+
 export async function pullCatalog({ branchId, deviceId, force = false }) {
   const since = force ? '1970-01-01T00:00:00.000Z' : getLastPullAt();
 
@@ -220,6 +278,7 @@ export async function pullCatalog({ branchId, deviceId, force = false }) {
   const staff = data.staff || [];
   const settings = data.settings || {};
   const branchStock = data.branchStock || [];
+  const recentSales = data.recentSales || [];
   const tombstones = data.tombstones || {};
 
   if (products.length) applyProducts(products);
@@ -228,12 +287,13 @@ export async function pullCatalog({ branchId, deviceId, force = false }) {
   if (staff.length) applyStaff(staff);
   if (Object.keys(settings).length) applySettings(settings);
   if (branchStock.length) applyStock(branchStock);
+  if (recentSales.length) applySales(recentSales);
   applyTombstones(tombstones);
 
   if (data.serverTime) setLastPullAt(data.serverTime);
 
   log.info(
-    `Pull done in ${duration}ms — products:${products.length} cats:${categories.length} customers:${customers.length} staff:${staff.length} stock:${branchStock.length}`
+    `Pull done in ${duration}ms — products:${products.length} cats:${categories.length} customers:${customers.length} staff:${staff.length} stock:${branchStock.length} sales:${recentSales.length}`
   );
 
   return {
@@ -245,6 +305,7 @@ export async function pullCatalog({ branchId, deviceId, force = false }) {
       customers: customers.length,
       staff: staff.length,
       branchStock: branchStock.length,
+      recentSales: recentSales.length,
     },
   };
 }
@@ -268,6 +329,35 @@ export function getCachedSettings() {
     }
   }
   return out;
+}
+
+export function getCachedRecentSales(limit = 100) {
+  const sales = prepare(
+    'SELECT * FROM sales_cache ORDER BY created_at DESC LIMIT ?'
+  ).all(limit);
+
+  if (sales.length === 0) return [];
+
+  const itemsStmt = prepare(
+    'SELECT * FROM sales_cache_items WHERE sale_id = ?'
+  );
+
+  return sales.map((s) => ({
+    id: s.id,
+    saleNumber: s.sale_number,
+    total: Number(s.total) || 0,
+    currency: s.currency,
+    paymentMethod: s.payment_method,
+    customerName: s.customer_name,
+    createdAt: s.created_at,
+    items: itemsStmt.all(s.id).map((i) => ({
+      productId: i.product_id,
+      name: i.name,
+      qty: Number(i.qty) || 0,
+      price: Number(i.price) || 0,
+      subtotal: Number(i.subtotal) || 0,
+    })),
+  }));
 }
 
 export function getLastPullTime() {

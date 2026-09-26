@@ -3,6 +3,7 @@ import {
   getProducts,
   getCustomers,
   getSettings,
+  getRecentSales,
   refreshCatalog,
 } from '../sync/index.js';
 import { createLogger } from '../logger.js';
@@ -75,6 +76,16 @@ export function registerDbIpc() {
     } catch (err) {
       log.error('getSettings failed:', err.message);
       return { ok: false, error: err.message, settings: {} };
+    }
+  });
+
+  ipcMain.handle('db:getRecentSales', (_event, limit = 100) => {
+    try {
+      const rows = getRecentSales(limit);
+      return { ok: true, sales: rows };
+    } catch (err) {
+      log.error('getRecentSales failed:', err.message);
+      return { ok: false, error: err.message, sales: [] };
     }
   });
 

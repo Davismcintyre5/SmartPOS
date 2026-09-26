@@ -210,25 +210,76 @@ export function buildInvoiceHtml(input: InvoiceBuildInput): string {
   `;
 }
 
+const INVOICE_STYLES = `
+  * { box-sizing: border-box; }
+  body { margin: 20px; font-family: Inter, Arial, sans-serif; color: #111827; }
+  @page { size: A4; margin: 12mm; }
+`;
+
 export function printInvoiceHtml(contentHtml: string, title = 'Invoice'): void {
   const win = window.open('', '', 'width=900,height=800');
-  if (!win) return;
+
+  if (!win) {
+    printInvoiceViaIframe(contentHtml, title);
+    return;
+  }
 
   win.document.write(`
     <html>
       <head>
         <title>${escapeHtml(title)}</title>
-        <style>
-          * { box-sizing: border-box; }
-          body { margin: 20px; font-family: Inter, Arial, sans-serif; color: #111827; }
-          @page { size: A4; margin: 12mm; }
-        </style>
+        <style>${INVOICE_STYLES}</style>
       </head>
       <body>${contentHtml}</body>
     </html>
   `);
   win.document.close();
+  win.focus();
   setTimeout(() => win.print(), 300);
+}
+
+function printInvoiceViaIframe(contentHtml: string, title: string): void {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument;
+  if (!doc) {
+    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+    return;
+  }
+
+  doc.open();
+  doc.write(`
+    <html>
+      <head>
+        <title>${escapeHtml(title)}</title>
+        <style>${INVOICE_STYLES}</style>
+      </head>
+      <body>${contentHtml}</body>
+    </html>
+  `);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch {
+      // ignore
+    }
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 60000);
+  }, 300);
 }
 
 function escapeHtml(s: string): string {

@@ -1,4 +1,3 @@
-import { app } from 'electron';
 import { syncEngine } from './engine.js';
 import { networkMonitor } from './offline.js';
 import { enqueue, getAll, getCounts } from './queue.js';
@@ -7,14 +6,17 @@ import {
   getCachedProducts,
   getCachedCustomers,
   getCachedSettings,
+  getCachedRecentSales,
 } from './pull.js';
-import { configureApi, syncApi } from './api.js';
+import { configureApi } from './api.js';
 import { getDatabase, closeDatabase } from './database.js';
 import { PENDING_TYPE } from './types.js';
 import crypto from 'node:crypto';
 import { createLogger } from '../logger.js';
-import { get, set, getDeviceId, getDeviceName } from '../store/index.js';
+import { get, set, getDeviceId } from '../store/index.js';
 import { KEYS } from '../store/keys.js';
+import { app } from 'electron';
+import { syncApi } from './api.js';
 
 const log = createLogger('sync:index');
 
@@ -25,7 +27,7 @@ async function ensureDeviceRegistered({ deviceId, branchId, attempt = 0 }) {
   try {
     const result = await syncApi.registerDevice({
       deviceId,
-      deviceName: getDeviceName(),
+      deviceName: get(KEYS.DEVICE_NAME, 'Unnamed device'),
       branchId,
       platform: process.platform,
       appVersion: app.getVersion(),
@@ -185,6 +187,10 @@ export function getCustomers() {
 
 export function getSettings() {
   return getCachedSettings();
+}
+
+export function getRecentSales(limit = 100) {
+  return getCachedRecentSales(limit);
 }
 
 export async function refreshCatalog() {

@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShoppingCart,
@@ -8,24 +7,18 @@ import {
   Package,
   AlertTriangle,
   ArrowRight,
+  CloudOff,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
-import {
-  dashboardApi,
-  type SalesSummary,
-  type TopProduct,
-  type RecentSale,
-} from '@/api/dashboard';
 import { useAuth } from '@/hooks/useAuth';
 import { useClient } from '@/hooks/useClient';
+import { useDashboardData } from '@/hooks/useDashboardData';
 import { formatMoney } from '@/utils/currency';
 import { formatDateTime } from '@/utils/format';
-import type { StockAlert } from '@/types/insight';
-import type { NormalizedError } from '@/types/api';
 
 const money = (n: number, c: string) => formatMoney(n, c, { decimals: 0 });
 
@@ -33,51 +26,16 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { currency } = useClient();
 
-  const [summary, setSummary] = useState<SalesSummary | null>(null);
-  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
-  const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
-  const [lowStock, setLowStock] = useState<StockAlert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<NormalizedError | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [todayResult, summaryResult, topResult, salesResult] =
-          await Promise.all([
-            dashboardApi
-              .insightsToday()
-              .catch(() => ({ latestMetric: null, lowStock: [] })),
-            dashboardApi.salesSummary({ period: 'today' }).catch(() => null),
-            dashboardApi
-              .topProducts({ period: 'week', limit: 5 })
-              .catch(() => []),
-            dashboardApi
-              .recentSales(8)
-              .catch(() => ({ data: [], meta: null })),
-          ]);
-
-        if (cancelled) return;
-
-        setSummary(summaryResult);
-        setTopProducts(topResult);
-        setRecentSales(salesResult.data ?? []);
-        setLowStock(todayResult.lowStock ?? []);
-      } catch (e) {
-        if (!cancelled) setError(e as NormalizedError);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    summary,
+    topProducts,
+    recentSales,
+    lowStock,
+    loading,
+    error,
+    source,
+    fetchedAt,
+  } = useDashboardData();
 
   if (loading) {
     return (
@@ -95,6 +53,7 @@ export default function Dashboard() {
   })();
 
   const firstName = user?.fullName?.split(' ')[0] ?? 'there';
+  const offline = source === 'cache';
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
@@ -104,26 +63,49 @@ export default function Dashboard() {
             {greeting}, {firstName}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Here&apos;s what&apos;s happening today.
+            {offline
+              ? `Offline — showing data cached at ${new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+              : "Here's what's happening today."}
           </p>
         </div>
-        <Link to="/app/pos">
-          <Button size="lg" leftIcon={<ShoppingCart className="h-4 w-4" />}>
-            New sale
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {offline ? (
+            <Badge variant="warning" className="gap-1">
+              <CloudOff className="h-3 w-3" />
+              Offline
+            </Badge>
+          ) : null}
+          <Link to="/app/pos">
+            <Button size="lg" leftIcon={<ShoppingCart className="h-4 w-4" />}>
+              New sale
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {error ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {error.message}
+          {error}
+        </div>
+      ) : null}
+
+      {offline ? (
+        <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-xs text-warning">
+          <CloudOff className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">You are offline</p>
+            <p className="mt-0.5 opacity-90">
+              Showing numbers from the local cache. Revenue figures may be
+              incomplete until you reconnect.
+            </p>
+          </div>
         </div>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={<Banknote className="h-4 w-4" />}
-          label="Sales today"
+          label={offline ? 'Sales today (cached)' : 'Sales today'}
           value={money(summary?.totalSales ?? 0, currency)}
         />
         <StatCard
@@ -199,7 +181,7 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Top products this week</CardTitle>
+            <CardTitle>Top products</CardTitle>
           </CardHeader>
           <CardContent>
             {topProducts.length === 0 ? (

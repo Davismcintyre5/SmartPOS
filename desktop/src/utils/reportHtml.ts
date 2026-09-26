@@ -176,11 +176,23 @@ export function buildReportHtml(spec: ReportSpec): string {
   `;
 }
 
+const REPORT_STYLES = `
+  * { box-sizing: border-box; }
+  body { margin: 20px; font-family: Inter, Arial, sans-serif; color: #111827; background: #fff; }
+  table { border-spacing: 0; }
+  @page { size: A4; margin: 12mm; }
+  @media print {
+    body { margin: 0; }
+    tr, td, th { page-break-inside: avoid; }
+  }
+`;
+
 export function printReport(spec: ReportSpec): void {
   const html = buildReportHtml(spec);
   const win = window.open('', '', 'width=1000,height=800');
+
   if (!win) {
-    alert('Pop-up blocked — allow pop-ups to print this report.');
+    printReportViaIframe(html, spec.title);
     return;
   }
 
@@ -189,16 +201,7 @@ export function printReport(spec: ReportSpec): void {
   <head>
     <meta charset="utf-8" />
     <title>${escapeHtml(spec.title)}</title>
-    <style>
-      * { box-sizing: border-box; }
-      body { margin: 20px; font-family: Inter, Arial, sans-serif; color: #111827; background: #fff; }
-      table { border-spacing: 0; }
-      @page { size: A4; margin: 12mm; }
-      @media print {
-        body { margin: 0; }
-        tr, td, th { page-break-inside: avoid; }
-      }
-    </style>
+    <style>${REPORT_STYLES}</style>
   </head>
   <body>${html}</body>
 </html>`);
@@ -206,6 +209,50 @@ export function printReport(spec: ReportSpec): void {
   win.focus();
   setTimeout(() => {
     win.print();
+  }, 300);
+}
+
+function printReportViaIframe(html: string, title: string): void {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument;
+  if (!doc) {
+    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+    return;
+  }
+
+  doc.open();
+  doc.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(title)}</title>
+    <style>${REPORT_STYLES}</style>
+  </head>
+  <body>${html}</body>
+</html>`);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch {
+      // ignore
+    }
+    setTimeout(() => {
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 60000);
   }, 300);
 }
 

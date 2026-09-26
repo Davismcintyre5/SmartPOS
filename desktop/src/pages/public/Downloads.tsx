@@ -1,4 +1,4 @@
-import { Download, Monitor, Apple, Terminal, Smartphone, ExternalLink } from 'lucide-react';
+import { Download, Monitor, Apple, Terminal, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useSite } from '@/hooks/useSite';
@@ -75,16 +75,6 @@ export default function Downloads() {
                     {d.releaseNotes}
                   </p>
                 ) : null}
-
-                <a
-                  href={d.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  {d.link}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
               </div>
 
               <a
