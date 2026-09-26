@@ -93,14 +93,17 @@ Thumbs.db
 ehthumbs.db
 desktop.ini
 
-# ── Electron ──────────────────────────────────────────────
-dist_electron/
-release/
+# ── Electron (desktop app) ────────────────────────────────
+desktop/release/
+desktop/dist-app/
+desktop/dist_electron/
+desktop/out/
+desktop/*.tsbuildinfo
+desktop/.vite/
+desktop/npm-debug.log*
 *.dmg
 *.AppImage
 *.snap
-*.exe
-*.msi
 *.deb
 *.rpm
 
@@ -108,12 +111,9 @@ release/
 docker-compose.override.yml
 
 # ── Misc ──────────────────────────────────────────────────
-.eslintcache
 *.pid
 *.seed
 *.pid.lock
 lib-cov/
 .grunt/
 .lock-wscript/
-.node_repl_history
-npm-debug.log*

@@ -1,0 +1,59 @@
+appId: com.hdm.smartpos
+productName: SmartPOS
+copyright: Copyright © 2026 HDM — Davis Okoth
+
+directories:
+  output: release/${version}
+  buildResources: assets
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - assets/**/*
+  - package.json
+
+extraResources:
+  - from: assets
+    to: assets
+
+publish:
+  provider: github
+  owner: Davismcintyre5
+  repo: SmartPOS
+  releaseType: release
+  publishAutoUpdate: true
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: assets/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  artifactName: SmartPOS-Setup-${version}.exe
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+  installerHeaderIcon: assets/icon.ico
+  installerSidebar: assets/installer-icon.png
+
+portable:
+  artifactName: SmartPOS-${version}-portable.exe
+
+mac:
+  target: dmg
+  icon: assets/icon.icns
+  category: public.app-category.business
+
+linux:
+  target: AppImage
+  icon: assets/icon.png
+  category: Office
