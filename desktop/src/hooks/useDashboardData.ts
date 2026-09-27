@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getElectron } from './useElectron';
 import { useOfflineStatus } from './useOfflineStatus';
 import {
@@ -42,28 +42,10 @@ function startOfTodayMs(): number {
   return d.getTime();
 }
 
-function readCache(): DashboardData {
-  const bridge = getElectron();
-  if (!bridge) throw new Error('Not running in Electron');
-
-  // These are synchronous through the ipcRenderer — safe to await
-  return {
-    summary: null,
-    topProducts: [],
-    recentSales: [],
-    lowStock: [],
-    productCount: 0,
-    customerCount: 0,
-    loading: false,
-    error: null,
-    source: 'cache',
-    fetchedAt: Date.now(),
-  };
-}
-
 export function useDashboardData(): DashboardData {
   const [data, setData] = useState<DashboardData>(INITIAL);
   const { online, isDesktop } = useOfflineStatus();
+  const wasOnlineRef = useRef(online);
 
   const loadFromCache = useCallback(async (): Promise<DashboardData | null> => {
     const bridge = getElectron();
@@ -162,8 +144,15 @@ export function useDashboardData(): DashboardData {
 
   const loadFromApi = useCallback(async (): Promise<DashboardData | null> => {
     try {
-      const [summary, top, sales, lowStock] = await Promise.all([
-        dashboardApi.salesSummary({ period: 'today' }).catch(() => null),
+      const summary = await dashboardApi
+        .salesSummary({ period: 'today' })
+        .catch(() => null);
+
+      if (!summary) {
+        return null;
+      }
+
+      const [top, sales, lowStock] = await Promise.all([
         dashboardApi.topProducts({ period: 'week', limit: 5 }).catch(() => []),
         dashboardApi.recentSales(8).catch(() => ({ data: [], meta: null })),
         dashboardApi
@@ -184,15 +173,14 @@ export function useDashboardData(): DashboardData {
         source: 'api',
         fetchedAt: Date.now(),
       };
-    } catch (err) {
+    } catch {
       return null;
     }
   }, []);
 
   const load = useCallback(async () => {
-    setData((prev) => ({ ...prev, loading: true }));
+    setData((prev) => ({ ...prev, loading: prev.fetchedAt === 0 }));
 
-    // Preferred path: online + desktop → API
     if (online && isDesktop) {
       const fromApi = await loadFromApi();
       if (fromApi) {
@@ -201,7 +189,6 @@ export function useDashboardData(): DashboardData {
       }
     }
 
-    // Fallback: read from cache
     if (isDesktop) {
       const fromCache = await loadFromCache();
       if (fromCache) {
@@ -210,7 +197,6 @@ export function useDashboardData(): DashboardData {
       }
     }
 
-    // No Electron bridge (web) → API only
     const fromApi = await loadFromApi();
     if (fromApi) {
       setData(fromApi);
@@ -228,11 +214,14 @@ export function useDashboardData(): DashboardData {
     load();
   }, [load]);
 
-  // Re-run when network state flips
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [online]);
+    const wasOnline = wasOnlineRef.current;
+    wasOnlineRef.current = online;
+
+    if (!wasOnline && online) {
+      load();
+    }
+  }, [online, load]);
 
   return data;
 }

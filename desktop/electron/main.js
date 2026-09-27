@@ -23,14 +23,12 @@ function testNodeSqlite() {
     db.close();
 
     if (row && row.id === 1 && row.name === 'hello') {
-      console.log('[test] node:sqlite works in Electron:', row);
       log.info('node:sqlite OK');
       return true;
     }
-    console.error('[test] node:sqlite unexpected:', row);
+    log.error('node:sqlite unexpected result', row);
     return false;
   } catch (err) {
-    console.error('[test] node:sqlite FAILED:', err.message);
     log.error('node:sqlite FAILED:', err.message);
     return false;
   }
@@ -57,40 +55,14 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.hdm.smartpos');
 }
 
-function attachDevToolsShortcuts() {
-  const win = getMainWindow();
-  if (!win) return;
-
-  win.webContents.on('before-input-event', (event, input) => {
-    const isF12 = input.key === 'F12';
-    const isCtrlShiftI =
-      (input.control || input.meta) &&
-      input.shift &&
-      input.key.toLowerCase() === 'i';
-
-    if (isF12 || isCtrlShiftI) {
-      event.preventDefault();
-      if (win.webContents.isDevToolsOpened()) {
-        win.webContents.closeDevTools();
-      } else {
-        win.webContents.openDevTools({ mode: 'detach' });
-      }
-    }
-  });
-
-  log.info('DevTools shortcuts attached (F12 / Ctrl+Shift+I)');
-}
-
 app.whenReady().then(() => {
   log.info('App ready — version', app.getVersion());
   log.info('User data path:', app.getPath('userData'));
   log.info('Packaged:', app.isPackaged);
-  log.info('Dev mode:', process.argv.includes('--dev'));
 
   registerAllIpc();
   buildMenu();
   createMainWindow();
-  attachDevToolsShortcuts();
   createTray();
 
   log.info('API base URL:', API_BASE_URL);
@@ -104,7 +76,6 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
-      attachDevToolsShortcuts();
     } else {
       getMainWindow()?.show();
     }
