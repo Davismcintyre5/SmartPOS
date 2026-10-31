@@ -30,7 +30,7 @@ const BOT_PROBE_PREFIXES = [
   '/.git',
   '/.gitignore',
   '/.htaccess',
-  '/.DS_Store',
+  '/.ds_store',
   '/.vscode',
   '/.idea',
   '/.aws',
@@ -54,7 +54,7 @@ const BOT_PROBE_PREFIXES = [
   '/trace.axd',
   '/elmah.axd',
   '/debug/default',
-  '/ecp/Current',
+  '/ecp/current',
   '/@vite',
   '/_profiler',
   '/___proxy_subdomain_whm',
@@ -85,7 +85,7 @@ const BOT_PROBE_PREFIXES = [
   '/openapi.json',
   '/api-docs',
   '/v3/api-docs',
-];
+].map((p) => p.toLowerCase());
 
 const C = {
   reset: '\x1b[0m',
@@ -241,7 +241,10 @@ async function bootstrap() {
         p === probe || p.startsWith(probe + '/') || p.startsWith(probe + '.')
     );
     if (hit) {
-      logger.debug({ path: req.path, ip: req.ip, ua: req.headers['user-agent'] }, 'bot probe blocked');
+      logger.debug(
+        { path: req.path, ip: req.ip, ua: req.headers['user-agent'] },
+        'bot probe blocked'
+      );
       return res.status(404).json({
         error: { code: 'NOT_FOUND', message: 'Not found' },
       });
