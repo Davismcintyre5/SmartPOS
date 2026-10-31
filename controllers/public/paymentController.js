@@ -17,13 +17,23 @@ function platformCreds() {
   ) {
     return null;
   }
+
+  const tillNumber = env.mpesa.tillNumber || '';
+  const isBuyGoods = Boolean(tillNumber);
+
+  const transactionType =
+    env.mpesa.transactionType ||
+    (isBuyGoods ? 'CustomerBuyGoodsOnline' : 'CustomerPayBillOnline');
+
+  const partyB = isBuyGoods ? tillNumber : env.mpesa.shortcode;
+
   return {
     tenantId: 'platform',
     env: env.mpesa.env,
     shortcode: env.mpesa.shortcode,
-    partyB: env.mpesa.shortcode,
-    transactionType: 'CustomerPayBillOnline',
-    accountReferenceDefault: 'SUBSCRIPTION',
+    partyB,
+    transactionType,
+    accountReferenceDefault: isBuyGoods ? tillNumber : 'SUBSCRIPTION',
     consumerKey: env.mpesa.consumerKey,
     consumerSecret: env.mpesa.consumerSecret,
     passkey: env.mpesa.passkey,
@@ -69,8 +79,6 @@ const sendStkForInvoice = asyncHandler(async (req, res) => {
       );
     }
   } else {
-    // resolveCreds throws if the tenant has not configured their own M-Pesa.
-    // No fallback to platform — money must land in the tenant's account.
     creds = await mpesaService.resolveCreds(invoice.tenantId);
   }
 
