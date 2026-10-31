@@ -83,9 +83,8 @@ async function bootstrap() {
       `${C.dim}version:${C.reset} ${pkg.version}`,
       `${C.dim}env:${C.reset}     ${env.nodeEnv}`,
       `${C.dim}port:${C.reset}    ${env.port}`,
-      `${C.dim}app:${C.reset}     ${appUrl || fallbackUrl}`,
+      `${C.dim}url:${C.reset}     ${appUrl || fallbackUrl}`,
       `${C.dim}admin:${C.reset}   ${adminUrl || '(not set)'}`,
-      `${C.dim}api:${C.reset}     ${apiUrl || '(not set)'}`,
       clientInfo.exists
         ? `${C.dim}client:${C.reset}  ${C.green}✔ dist/ found${C.reset} (${clientInfo.assetCount} assets)`
         : `${C.dim}client:${C.reset}  ${C.red}✘ dist/ missing${C.reset} — API-only mode`,
@@ -123,7 +122,10 @@ async function bootstrap() {
   app.use(helmetMw);
   app.use(corsMw);
 
-  app.use('/api/public/webhooks', express.raw({ type: '*/*' }));
+  app.use(
+    '/api/public/webhooks/stripe',
+    express.raw({ type: 'application/json' })
+  );
 
   app.use(bodyParser);
   app.use(sanitize);
@@ -212,10 +214,10 @@ async function bootstrap() {
     logger.info(
       `\n${C.green}${C.bold}✔ Ready${C.reset}\n` +
         `   ${C.dim}version:${C.reset}  ${pkg.version}\n` +
-        `   ${C.dim}app:${C.reset}      ${C.cyan}${appUrl || fallbackUrl}${C.reset}\n` +
+        `   ${C.dim}url:${C.reset}      ${C.cyan}${appUrl || fallbackUrl}${C.reset}\n` +
         `   ${C.dim}admin:${C.reset}    ${C.cyan}${adminUrl || '(not set)'}${C.reset}\n` +
-        `   ${C.dim}api:${C.reset}      ${C.cyan}${apiUrl || '(not set)'}${C.reset}\n` +
-        `   ${C.dim}health:${C.reset}   ${C.cyan}${healthUrl}${C.reset}\n`
+        `   ${C.dim}health:${C.reset}   ${C.cyan}${healthUrl}${C.reset}\n` +
+        `   ${C.dim}api:${C.reset}      ${C.cyan}${(apiUrl || appUrl || fallbackUrl)}/api${C.reset}\n`
     );
 
     if (clientInfo.exists) {
