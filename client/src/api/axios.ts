@@ -1,8 +1,6 @@
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import type { NormalizedError } from '@/types/api';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
 const REFRESH_KEY = 'smartpos_client_refresh';
 const LEGACY_REFRESH_KEY = 'bizos_client_refresh';
 
@@ -19,7 +17,7 @@ const LEGACY_REFRESH_KEY = 'bizos_client_refresh';
 })();
 
 export const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: '/api',
   timeout: 30000,
   withCredentials: true,
 });
@@ -60,7 +58,7 @@ async function refreshAccessToken(): Promise<string> {
   if (!refreshToken) throw new Error('No refresh token');
 
   const res = await axios.post(
-    `${BASE_URL}/public/auth/refresh`,
+    '/api/public/auth/refresh',
     { refreshToken },
     { timeout: 15000 }
   );

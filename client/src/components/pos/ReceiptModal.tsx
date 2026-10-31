@@ -1,7 +1,9 @@
 import { Receipt, Printer } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { buildReceiptHtml, printReceiptHtml } from '@/utils/receiptHtml';
+import { useHardware } from '@/hooks/useHardware';
+import { useToast } from '@/hooks/useNotification';
+import type { ReceiptPayload } from '@/types/receipt';
 
 export interface ReceiptSale {
   saleNumber: string;
@@ -39,32 +41,84 @@ export function ReceiptModal({
   footer,
   onClose,
 }: ReceiptModalProps) {
+  const toast = useToast();
+  const { printReceipt, logPrint, openCashDrawer } = useHardware();
+
   if (!sale) return null;
 
-  const html = buildReceiptHtml({
-    saleNumber: sale.saleNumber,
-    items: sale.items,
-    subtotal: sale.subtotal,
-    discount: sale.discount,
-    appliedDiscounts: sale.appliedDiscounts,
-    globalDiscount: sale.globalDiscount,
-    vatEnabled: sale.vatEnabled,
-    vatRate: sale.vatRate,
-    vatAmount: sale.vatAmount,
-    total: sale.total,
+  const buildPayload = (): ReceiptPayload => ({
+    version: '1.0',
+    docType: 'sale_receipt',
+    docNumber: sale.saleNumber,
+    issuedAt: sale.createdAt,
     currency: sale.currency,
-    paymentMethod: sale.paymentMethod,
-    amountPaid: sale.amountPaid,
-    changeAmount: sale.changeAmount,
-    customerName: sale.customerName,
-    createdAt: sale.createdAt,
-    cashierName,
-    header,
+    store: {
+      name: header,
+      slug: null,
+      address: null,
+      phone: null,
+      email: null,
+      taxId: null,
+      logoUrl: null,
+      website: null,
+      taxLabel: 'VAT',
+      receiptFooter: footer,
+    },
+    cashier: cashierName,
+    customer:
+      sale.customerName && sale.customerName !== 'Walk-in Customer'
+        ? { name: sale.customerName }
+        : null,
+    items: sale.items.map((i) => ({
+      name: i.name,
+      qty: i.qty,
+      unitPrice: i.price,
+      lineTotal: i.subtotal,
+    })),
+    totals: {
+      subtotal: sale.subtotal,
+      discount: sale.discount,
+      tax: sale.vatAmount,
+      vatRate: sale.vatRate,
+      vatAmount: sale.vatAmount,
+      total: sale.total,
+      amountPaid: sale.amountPaid,
+      change: sale.changeAmount,
+    },
+    payments: [
+      {
+        method: sale.paymentMethod,
+        amount: sale.amountPaid || sale.total,
+        reference: null,
+        paidAt: sale.createdAt,
+      },
+    ],
     footer,
+    taxLabel: 'VAT',
   });
 
-  const handlePrint = () => {
-    printReceiptHtml(html, `Receipt — ${sale.saleNumber}`);
+  const handlePrint = async () => {
+    const payload = buildPayload();
+    const result = await printReceipt(payload);
+    logPrint({
+      docType: 'sale_receipt',
+      docNumber: sale.saleNumber,
+      success: result.success,
+      error: result.error,
+      durationMs: result.durationMs,
+    });
+    if (!result.success) {
+      toast.error(result.error || 'Print failed');
+    }
+  };
+
+  const handlePrintAndOpenDrawer = async () => {
+    await handlePrint();
+    try {
+      await openCashDrawer();
+    } catch {
+      // drawer kick failures are non-fatal
+    }
   };
 
   return (
@@ -77,17 +131,22 @@ export function ReceiptModal({
           Payment successful
         </h3>
 
-        <div
-          className="mb-4 rounded-lg border border-border bg-white p-4 text-left font-mono text-xs leading-relaxed"
-          style={{ color: '#111827' }}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
+        <div className="mb-4 rounded-lg border border-border bg-muted/40 p-3 text-left text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">{sale.saleNumber}</p>
+          <p>
+            {sale.currency} {sale.total.toFixed(2)} · {sale.items.length} item
+            {sale.items.length === 1 ? '' : 's'}
+          </p>
+        </div>
 
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={handlePrint}>
-            <Printer className="h-4 w-4" /> Print
+        <div className="flex flex-col gap-2">
+          <Button onClick={handlePrint} leftIcon={<Printer className="h-4 w-4" />}>
+            Print receipt
           </Button>
-          <Button className="flex-1" onClick={onClose}>
+          <Button variant="outline" onClick={handlePrintAndOpenDrawer}>
+            Print &amp; open drawer
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
             Done
           </Button>
         </div>

@@ -5,6 +5,7 @@ import { SiteProvider } from '@/context/SiteContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { ClientProvider } from '@/context/ClientContext';
+import { HardwareProvider } from '@/context/HardwareContext';
 import { AppRoutes } from '@/routes/AppRoutes';
 
 export default function App() {
@@ -21,7 +22,9 @@ export default function App() {
             <NotificationProvider>
               <AuthProvider>
                 <ClientProvider>
-                  <AppRoutes />
+                  <HardwareProvider>
+                    <AppRoutes />
+                  </HardwareProvider>
                 </ClientProvider>
               </AuthProvider>
             </NotificationProvider>

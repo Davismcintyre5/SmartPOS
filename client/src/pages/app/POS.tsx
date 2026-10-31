@@ -13,18 +13,26 @@ import { useCart } from '@/hooks/useCart';
 import { useClient } from '@/hooks/useClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useNotification';
-import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { useCameraScanner } from '@/hooks/useCameraScanner';
+import { useHardware } from '@/hooks/useHardware';
+import { useHardwareScanner } from '@/lib/hardware/scanner/useHardwareScanner';
 import { api } from '@/api/axios';
 import type { Product } from '@/types/product';
 import type { Sale } from '@/types/sale';
 import type { NormalizedError } from '@/types/api';
+import type { ReceiptPayload } from '@/types/receipt';
 
 const whole = (n: number) => Math.round(Number(n) || 0);
 
 export default function POS() {
   const { user, tenant } = useAuth();
   const { settings, currency, reload: reloadSettings } = useClient();
+  const {
+    config: hardwareConfig,
+    printReceipt,
+    openCashDrawer,
+    logPrint,
+  } = useHardware();
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const {
@@ -156,7 +164,7 @@ export default function POS() {
     [products, addItem, toast]
   );
 
-  useBarcodeScanner({
+  useHardwareScanner({
     enabled: !showPayment && !showReceipt && !cameraOn && !holdModalOpen,
     onScan: handleBarcodeScan,
   });
@@ -281,6 +289,86 @@ export default function POS() {
     createdAt: sale.createdAt,
   });
 
+  const buildReceiptPayload = (sale: ReceiptSale): ReceiptPayload => ({
+    version: '1.0',
+    docType: 'sale_receipt',
+    docNumber: sale.saleNumber,
+    issuedAt: sale.createdAt,
+    currency: sale.currency,
+    store: {
+      name: receiptSettings.header,
+      slug: null,
+      address: null,
+      phone: null,
+      email: null,
+      taxId: null,
+      logoUrl: null,
+      website: null,
+      taxLabel: 'VAT',
+      receiptFooter: receiptSettings.footer,
+    },
+    cashier: user?.fullName || 'Cashier',
+    customer:
+      sale.customerName && sale.customerName !== 'Walk-in Customer'
+        ? { name: sale.customerName }
+        : null,
+    items: sale.items.map((i) => ({
+      name: i.name,
+      qty: i.qty,
+      unitPrice: i.price,
+      lineTotal: i.subtotal,
+    })),
+    totals: {
+      subtotal: sale.subtotal,
+      discount: sale.discount,
+      tax: sale.vatAmount,
+      vatRate: sale.vatRate,
+      vatAmount: sale.vatAmount,
+      total: sale.total,
+      amountPaid: sale.amountPaid,
+      change: sale.changeAmount,
+    },
+    payments: [
+      {
+        method: sale.paymentMethod,
+        amount: sale.amountPaid || sale.total,
+        reference: null,
+        paidAt: sale.createdAt,
+      },
+    ],
+    footer: receiptSettings.footer,
+    taxLabel: 'VAT',
+  });
+
+  const autoPrintAndKickDrawer = async (sale: ReceiptSale) => {
+    if (hardwareConfig?.autoPrintOnSale) {
+      const copies = Math.max(1, Math.min(5, hardwareConfig.copies || 1));
+      const payload = buildReceiptPayload(sale);
+      for (let i = 0; i < copies; i++) {
+        const result = await printReceipt(payload);
+        logPrint({
+          docType: 'sale_receipt',
+          docNumber: sale.saleNumber,
+          success: result.success,
+          error: result.error,
+          durationMs: result.durationMs,
+        });
+        if (!result.success) {
+          toast.error(result.error || 'Auto-print failed');
+          break;
+        }
+      }
+    }
+
+    if (hardwareConfig?.openCashDrawerOnSale) {
+      try {
+        await openCashDrawer();
+      } catch {
+        // non-fatal
+      }
+    }
+  };
+
   const handlePay = async (
     method: 'cash' | 'mpesa' | 'card',
     amountPaid?: number
@@ -314,7 +402,8 @@ export default function POS() {
       });
 
       const sale = data.data;
-      setLastSale(buildReceiptSale(sale, method, paid, change));
+      const receiptSale = buildReceiptSale(sale, method, paid, change);
+      setLastSale(receiptSale);
 
       setShowPayment(false);
       setShowReceipt(true);
@@ -324,6 +413,9 @@ export default function POS() {
       setResumeId(null);
       fetchProducts();
       toast.success('Sale completed');
+
+      // fire-and-forget auto print + drawer
+      void autoPrintAndKickDrawer(receiptSale);
     } catch (e) {
       toast.error((e as NormalizedError).message);
     } finally {
@@ -332,7 +424,7 @@ export default function POS() {
   };
 
   const handleMpesaSuccess = (saleId: string, saleNumber: string) => {
-    setLastSale({
+    const receiptSale: ReceiptSale = {
       saleNumber,
       items: items.map((i) => ({
         name: i.name,
@@ -354,8 +446,9 @@ export default function POS() {
       changeAmount: 0,
       customerName: customerName || 'Walk-in Customer',
       createdAt: new Date().toISOString(),
-    });
+    };
 
+    setLastSale(receiptSale);
     setShowPayment(false);
     setShowReceipt(true);
     clear();
@@ -364,6 +457,8 @@ export default function POS() {
     setResumeId(null);
     fetchProducts();
     void saleId;
+
+    void autoPrintAndKickDrawer(receiptSale);
   };
 
   const handleHold = () => {
@@ -440,7 +535,6 @@ export default function POS() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
-      {/* Top bar */}
       <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
         <div className="relative flex-1">
           <ScanLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -505,7 +599,6 @@ export default function POS() {
         </div>
       ) : null}
 
-      {/* Main */}
       <div className="flex flex-1 overflow-hidden">
         <div className="scrollbar-thin flex-1 overflow-y-auto p-4">
           {search.trim() ? (

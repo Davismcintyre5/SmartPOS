@@ -8,10 +8,11 @@ import { useClient } from '@/hooks/useClient';
 import { useToast } from '@/hooks/useNotification';
 import type { NormalizedError } from '@/types/api';
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(
-  /\/$/,
-  ''
-);
+const API_ORIGIN =
+  import.meta.env.VITE_API_ORIGIN ||
+  `${window.location.protocol}//${window.location.host}`;
+
+const API_BASE = `${API_ORIGIN.replace(/\/+$/, '')}/api`;
 
 const FULL_ENDPOINT = `${API_BASE}/external/data`;
 

@@ -1,0 +1,1 @@
+export type { PrinterDriver } from '../types';

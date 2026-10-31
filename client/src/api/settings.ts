@@ -15,6 +15,11 @@ export type {
   SpecificDiscountType,
   MpesaSettings,
   MpesaEnv,
+  MpesaStkMethod,
+  MpesaCredentials,
+  MpesaPaybill,
+  MpesaTill,
+  MpesaSendMoney,
   UpdateMpesaInput,
   TestMpesaResult,
 } from '@/types/settings';

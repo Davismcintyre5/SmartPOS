@@ -31,6 +31,7 @@ export interface TenantSettings {
   logoUrl?: string;
   logoPublicId?: string;
   paymentMethods?: string[];
+  cashEnabled?: boolean;
   [key: string]: unknown;
 }
 
@@ -53,13 +54,10 @@ export interface SettingsResponse {
 }
 
 export type MpesaEnv = 'sandbox' | 'production';
+export type MpesaStkMethod = 'paybill' | 'till' | 'sendMoney';
 
-export interface MpesaSettings {
-  enabled: boolean;
-  platformEnabled: boolean;
-  effectivelyEnabled: boolean;
+export interface MpesaCredentials {
   env: MpesaEnv;
-  shortcode: string;
   consumerKey: string;
   consumerSecret: string;
   passkey: string;
@@ -67,13 +65,62 @@ export interface MpesaSettings {
   updatedAt: string | null;
 }
 
+export interface MpesaPaybill {
+  enabled: boolean;
+  shortcode: string;
+  accountReference: string;
+}
+
+export interface MpesaTill {
+  enabled: boolean;
+  tillNumber: string;
+  darajaShortcode: string;
+}
+
+export interface MpesaSendMoney {
+  enabled: boolean;
+  phone: string;
+}
+
+export interface MpesaSettings {
+  platformEnabled: boolean;
+  cashEnabled: boolean;
+  credentials: MpesaCredentials;
+  paybill: MpesaPaybill;
+  till: MpesaTill;
+  sendMoney: MpesaSendMoney;
+  stkEnabled: boolean;
+  stkMethod: MpesaStkMethod | null;
+  enabledMethods: MpesaStkMethod[];
+  methodsEnabled: boolean;
+  effectivelyEnabled: boolean;
+  updatedAt: string | null;
+}
+
 export interface UpdateMpesaInput {
-  enabled?: boolean;
-  env?: MpesaEnv;
-  shortcode?: string;
-  consumerKey?: string;
-  consumerSecret?: string;
-  passkey?: string;
+  cashEnabled?: boolean;
+  stkEnabled?: boolean;
+  stkMethod?: MpesaStkMethod | null;
+  credentials?: {
+    env?: MpesaEnv;
+    consumerKey?: string;
+    consumerSecret?: string;
+    passkey?: string;
+  };
+  paybill?: {
+    enabled?: boolean;
+    shortcode?: string;
+    accountReference?: string;
+  };
+  till?: {
+    enabled?: boolean;
+    tillNumber?: string;
+    darajaShortcode?: string;
+  };
+  sendMoney?: {
+    enabled?: boolean;
+    phone?: string;
+  };
 }
 
 export interface TestMpesaResult {
