@@ -25,6 +25,68 @@ const { startSchedulers } = require('./schedulers');
 
 const CLIENT_DIST = path.join(__dirname, 'client', 'dist');
 
+const BOT_PROBE_PREFIXES = [
+  '/.env',
+  '/.git',
+  '/.gitignore',
+  '/.htaccess',
+  '/.DS_Store',
+  '/.vscode',
+  '/.idea',
+  '/.aws',
+  '/.ssh',
+  '/info.php',
+  '/phpinfo.php',
+  '/wp-admin',
+  '/wp-login.php',
+  '/wp-content',
+  '/wp-includes',
+  '/wp-json',
+  '/xmlrpc.php',
+  '/administrator',
+  '/actuator',
+  '/telescope',
+  '/graphql',
+  '/graphiql',
+  '/v2/_catalog',
+  '/server-status',
+  '/server-info',
+  '/trace.axd',
+  '/elmah.axd',
+  '/debug/default',
+  '/ecp/Current',
+  '/@vite',
+  '/_profiler',
+  '/___proxy_subdomain_whm',
+  '/___proxy_subdomain_cpanel',
+  '/config.json',
+  '/config.yml',
+  '/config.yaml',
+  '/backup.zip',
+  '/backup.sql',
+  '/database.sql',
+  '/dump.sql',
+  '/cgi-bin',
+  '/shell.php',
+  '/phpmyadmin',
+  '/pma',
+  '/admin.php',
+  '/adminer.php',
+  '/manager/html',
+  '/solr',
+  '/elasticsearch',
+  '/_cluster/health',
+  '/_cat/indices',
+  '/jenkins',
+  '/nexus',
+  '/management',
+  '/swagger-ui.html',
+  '/swagger-resources',
+  '/openapi.json',
+  '/api-docs',
+  '/v3/api-docs',
+];
+
 const C = {
   reset: '\x1b[0m',
   dim: '\x1b[2m',
@@ -172,6 +234,21 @@ async function bootstrap() {
     });
   });
 
+  app.use((req, res, next) => {
+    const p = req.path.toLowerCase();
+    const hit = BOT_PROBE_PREFIXES.some(
+      (probe) =>
+        p === probe || p.startsWith(probe + '/') || p.startsWith(probe + '.')
+    );
+    if (hit) {
+      logger.debug({ path: req.path, ip: req.ip, ua: req.headers['user-agent'] }, 'bot probe blocked');
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Not found' },
+      });
+    }
+    next();
+  });
+
   app.use('/api', routes);
 
   if (clientInfo.exists) {
@@ -221,7 +298,9 @@ async function bootstrap() {
     );
 
     if (clientInfo.exists) {
-      logger.info(`   ${C.dim}client:${C.reset}   ${C.cyan}${appUrl || apiUrl || fallbackUrl}/${C.reset}`);
+      logger.info(
+        `   ${C.dim}client:${C.reset}   ${C.cyan}${appUrl || apiUrl || fallbackUrl}/${C.reset}`
+      );
     } else {
       logger.warn(
         `   ${C.yellow}client:${C.reset}   ${C.yellow}not built${C.reset} — run ${C.cyan}cd client && npm run build${C.reset}`
